@@ -1,0 +1,15 @@
+allow-branch = ["main", "!HEAD"]
+
+shared-version = true
+publish = false
+push = true
+push-remote = "origin"
+
+tag = true
+tag-name = "ta-v{{version}}"
+tag-message = "chore: Release ta-v{{version}}"
+
+pre-release-commit-message = "chore: Release ta-v{{version}}"
+
+sign-commit = false
+sign-tag = false

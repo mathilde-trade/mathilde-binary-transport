@@ -1,0 +1,60 @@
+[config]
+default_to_workspace = false
+
+[tasks.rl]
+description = "Release preflight checks (branch, clean tree, tools). Run as: cargo make rl patch|minor|major"
+script_runner = "@shell"
+script = [
+  "set -eu",
+  "test -f release.toml || { echo \"missing release.toml\"; exit 1; }",
+  "command -v git >/dev/null 2>&1 || { echo \"git not found\"; exit 1; }",
+  "command -v cargo >/dev/null 2>&1 || { echo \"cargo not found\"; exit 1; }",
+  "cargo release --version >/dev/null 2>&1 || { echo \"cargo-release not installed (expected: cargo release ...)\"; exit 1; }",
+  "branch=\"$(git rev-parse --abbrev-ref HEAD)\"",
+  "test \"$branch\" = \"main\" || { echo \"release must run on branch 'main' (current: $branch)\"; exit 1; }",
+  "test -z \"$(git status --porcelain)\" || { echo \"working tree must be clean\"; git status --porcelain; exit 1; }",
+  "echo \"ok: preflight\"",
+  "args=\"${CARGO_MAKE_TASK_ARGS:-}\"",
+  "if [ -n \"$args\" ]; then",
+  "  for task in $args; do",
+  "    case \"$task\" in",
+  "      patch|minor|major|set) cargo make \"$task\" ;;",
+  "      *) echo \"unknown release task: $task\"; exit 1 ;;",
+  "    esac",
+  "  done",
+  "fi",
+]
+
+[tasks.patch]
+description = "Execute patch release (version bump + commit + tag + push) using cargo-release"
+command = "cargo"
+args = ["release", "patch", "--workspace", "-x", "--no-confirm"]
+
+[tasks.minor]
+description = "Execute minor release (version bump + commit + tag + push) using cargo-release"
+command = "cargo"
+args = ["release", "minor", "--workspace", "-x", "--no-confirm"]
+
+[tasks.major]
+description = "Execute major release (version bump + commit + tag + push) using cargo-release"
+command = "cargo"
+args = ["release", "major", "--workspace", "-x", "--no-confirm"]
+
+[tasks.set]
+description = "Execute explicit-version release (set VERSION=...); example: cargo make rl set VERSION=0.2.0"
+command = "cargo"
+args = ["release", "${VERSION}", "--workspace", "-x", "--no-confirm"]
+
+[tasks.inventory]
+description = "Generate the repo root inventory.md from per-component inventories (crates/* and services/*)."
+script_runner = "@shell"
+script = [
+  "set -eu",
+  "test -f Cargo.toml || { echo \"run from repo root\"; exit 1; }",
+  "command -v rustc >/dev/null 2>&1 || { echo \"rustc not found\"; exit 1; }",
+  "mkdir -p target/tools",
+  "bin_out=\"target/tools/generate_global_inventory\"",
+  "rustc -O bin/generate_global_inventory.rs -o \"$bin_out\"",
+  "\"$bin_out\" --repo-root \"$(pwd)\" --out \"$(pwd)/inventory.md\" --strict",
+  "echo \"ok: wrote inventory.md\"",
+]

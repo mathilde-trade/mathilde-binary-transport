@@ -1,0 +1,7 @@
+/target
+node_modules
+.dev
+bun.lock
+Cargo.lock
+.serena
+AGENTS.md
