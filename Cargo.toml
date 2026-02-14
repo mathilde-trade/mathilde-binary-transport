@@ -8,10 +8,26 @@ license = "MIT OR Apache-2.0"
 path = "src/lib.rs"
 
 [dependencies]
+flate2 = { version = "1.1", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+zstd = { version = "0.13", optional = true }
 
 [dev-dependencies]
 criterion = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [[bench]]
 name = "mathldbt_transport"
 harness = false
+
+[[bench]]
+name = "json_vs_mathldbt"
+harness = false
+
+[features]
+default = []
+compression-gzip = ["dep:flate2"]
+compression-zstd = ["dep:zstd"]
+tools-json = ["dep:serde", "dep:serde_json"]

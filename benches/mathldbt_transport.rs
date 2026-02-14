@@ -4,6 +4,12 @@ use mathilde_binary_transport::codec::mathldbt_v1::{
     MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_mathldbt_v1_with_workspace,
     encode_mathldbt_v1_into_with_workspace,
 };
+#[cfg(any(feature = "compression-zstd", feature = "compression-gzip"))]
+use mathilde_binary_transport::codec::mathldbt_v1_compressed::{
+    Compression, MathldbtV1CompressedDecodeWorkspace, MathldbtV1CompressedEncodeWorkspace,
+    decode_mathldbt_v1_compressed_with_workspace,
+    encode_mathldbt_v1_compressed_into_with_workspace,
+};
 use mathilde_binary_transport::schema::{ColumnarField, ColumnarSchema, ColumnarType};
 
 fn make_bars_like_batch(rows: usize) -> ColumnarBatch {
@@ -198,6 +204,122 @@ fn bench_transport(c: &mut Criterion) {
                 })
             },
         );
+
+        #[cfg(feature = "compression-zstd")]
+        {
+            let c = Compression::Zstd { level: 3 };
+
+            let mut encoded_zstd = Vec::new();
+            {
+                let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+                codec_ws
+                    .set_enable_dict_utf8(true)
+                    .set_enable_delta_varint_i64(true);
+                let mut compress_ws = MathldbtV1CompressedEncodeWorkspace::default();
+                encode_mathldbt_v1_compressed_into_with_workspace(
+                    &batch,
+                    &mut encoded_zstd,
+                    c,
+                    &mut codec_ws,
+                    &mut compress_ws,
+                )
+                .unwrap();
+            }
+
+            group.bench_with_input(BenchmarkId::new("encode_zstd_ws", rows), &rows, |b, _| {
+                let mut out = Vec::new();
+                let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+                codec_ws
+                    .set_enable_dict_utf8(true)
+                    .set_enable_delta_varint_i64(true);
+                let mut compress_ws = MathldbtV1CompressedEncodeWorkspace::default();
+                b.iter(|| {
+                    encode_mathldbt_v1_compressed_into_with_workspace(
+                        black_box(&batch),
+                        &mut out,
+                        c,
+                        &mut codec_ws,
+                        &mut compress_ws,
+                    )
+                    .unwrap();
+                    black_box(out.len());
+                })
+            });
+
+            group.bench_with_input(BenchmarkId::new("decode_zstd_ws", rows), &rows, |b, _| {
+                let mut codec_ws = MathldbtV1DecodeWorkspace::default();
+                let mut decompress_ws = MathldbtV1CompressedDecodeWorkspace::default();
+                b.iter(|| {
+                    let decoded = decode_mathldbt_v1_compressed_with_workspace(
+                        black_box(encoded_zstd.as_slice()),
+                        c,
+                        1024 * 1024 * 1024,
+                        &mut codec_ws,
+                        &mut decompress_ws,
+                    )
+                    .unwrap();
+                    black_box(decoded.row_count);
+                })
+            });
+        }
+
+        #[cfg(feature = "compression-gzip")]
+        {
+            let c = Compression::Gzip { level: 6 };
+
+            let mut encoded_gzip = Vec::new();
+            {
+                let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+                codec_ws
+                    .set_enable_dict_utf8(true)
+                    .set_enable_delta_varint_i64(true);
+                let mut compress_ws = MathldbtV1CompressedEncodeWorkspace::default();
+                encode_mathldbt_v1_compressed_into_with_workspace(
+                    &batch,
+                    &mut encoded_gzip,
+                    c,
+                    &mut codec_ws,
+                    &mut compress_ws,
+                )
+                .unwrap();
+            }
+
+            group.bench_with_input(BenchmarkId::new("encode_gzip_ws", rows), &rows, |b, _| {
+                let mut out = Vec::new();
+                let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+                codec_ws
+                    .set_enable_dict_utf8(true)
+                    .set_enable_delta_varint_i64(true);
+                let mut compress_ws = MathldbtV1CompressedEncodeWorkspace::default();
+                b.iter(|| {
+                    encode_mathldbt_v1_compressed_into_with_workspace(
+                        black_box(&batch),
+                        &mut out,
+                        c,
+                        &mut codec_ws,
+                        &mut compress_ws,
+                    )
+                    .unwrap();
+                    black_box(out.len());
+                })
+            });
+
+            group.bench_with_input(BenchmarkId::new("decode_gzip_ws", rows), &rows, |b, _| {
+                let mut codec_ws = MathldbtV1DecodeWorkspace::default();
+                let mut decompress_ws = MathldbtV1CompressedDecodeWorkspace::default();
+                b.iter(|| {
+                    let decoded = decode_mathldbt_v1_compressed_with_workspace(
+                        black_box(encoded_gzip.as_slice()),
+                        c,
+                        1024 * 1024 * 1024,
+                        &mut codec_ws,
+                        &mut decompress_ws,
+                    )
+                    .unwrap();
+                    black_box(decoded.row_count);
+                })
+            });
+        }
     }
     group.finish();
 }
