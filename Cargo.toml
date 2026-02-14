@@ -3,4 +3,14 @@ name = "mathilde-binary-transport"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+path = "src/lib.rs"
+
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "mathldbt_transport"
+harness = false
