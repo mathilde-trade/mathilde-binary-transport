@@ -74,6 +74,27 @@ struct ComponentInventory {
 
 fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInventory>, String> {
     let mut out: Vec<ComponentInventory> = Vec::new();
+
+    // Root crate discovery: a single-crate repo may keep `Cargo.toml` at repo root.
+    // If `docs/inventory.md` exists at the root, treat it as a crate component.
+    {
+        let manifest = repo_root.join("Cargo.toml");
+        let inv = repo_root.join("docs").join("inventory.md");
+        if manifest.is_file() && inv.is_file() {
+            let name = repo_root
+                .file_name()
+                .unwrap_or_else(|| OsStr::new(""))
+                .to_string_lossy()
+                .to_string();
+            out.push(ComponentInventory {
+                kind: ComponentKind::Crate,
+                name: if name.is_empty() { "root".to_string() } else { name },
+                inventory_path: inv,
+                source_root: repo_root.to_path_buf(),
+            });
+        }
+    }
+
     // Primary discovery: workspace-style crates at repo root, e.g. `orsx/`, `orsx-macros/`.
     for entry in fs::read_dir(repo_root).map_err(|e| format!("read_dir failed: {e}"))? {
         let entry = entry.map_err(|e| format!("read_dir entry failed: {e}"))?;
@@ -539,7 +560,7 @@ fn main() -> Result<(), String> {
     ));
     lines.push("".to_string());
     lines.push(format!("Generated: {now}"));
-    lines.push("Protocol: `protocols/inventory_template.md`".to_string());
+    lines.push("Protocol: `docs/inventory_template.md`".to_string());
     lines.push("".to_string());
     lines.push(
         "This file is generated from per-component inventories under `*/docs/inventory.md` (workspace crates) and optionally `crates/*/docs/inventory.md` / `services/*/docs/inventory.md`."
@@ -637,7 +658,14 @@ fn main() -> Result<(), String> {
         }
         let component_files = component_source_files(&repo_root, component_root)?;
 
-        let name = rel_path(&repo_root, component_root)?;
+        let name = {
+            let n = rel_path(&repo_root, component_root)?;
+            if n.is_empty() {
+                repo_name.to_string()
+            } else {
+                n
+            }
+        };
 
         lines.push(format!("## `{name}`"));
         lines.push("".to_string());
