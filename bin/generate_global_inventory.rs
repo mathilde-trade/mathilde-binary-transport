@@ -95,7 +95,7 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
         }
     }
 
-    // Primary discovery: workspace-style crates at repo root, e.g. `orsx/`, `orsx-macros/`.
+    // Primary discovery: workspace-style crates at repo root, e.g. `crates/*` or `some-lib/`.
     for entry in fs::read_dir(repo_root).map_err(|e| format!("read_dir failed: {e}"))? {
         let entry = entry.map_err(|e| format!("read_dir entry failed: {e}"))?;
         let p = entry.path();
