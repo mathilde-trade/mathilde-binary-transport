@@ -1,6 +1,6 @@
 # `mathilde-binary-transport` — Global Inventory (GENERATED; DO NOT EDIT)
 
-Generated: 2026-02-15T09:20:09Z
+Generated: 2026-02-15T17:13:21Z
 Protocol: `docs/inventory_template.md`
 
 This file is generated from per-component inventories under `*/src/docs/inventory.md`
@@ -40,5 +40,7 @@ If a file purpose is missing in a component inventory, this file will mark it as
 - `src/tests/test_mathldbt_v1.rs`: `MATHLDBT` round-trip and determinism tests.
 - `src/tests/test_mathldbt_v1_adversarial.rs`: adversarial decode tests (truncation/malformed payloads; deterministic errors).
 - `src/tests/test_mathldbt_v1_compressed.rs`: tests for compressed helpers (round-trip, determinism, bounds enforcement, and feature-gate errors).
+- `src/tests/test_mathldbt_v1_decode_into_equivalence.rs`: `decode_into` correctness vs allocating decode (plain + dict/delta).
+- `src/tests/test_mathldbt_v1_decode_into_reuse_smoke.rs`: `decode_into` reuse smoke test (call twice on the same destination).
 
 ---

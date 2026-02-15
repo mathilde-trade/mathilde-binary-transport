@@ -255,3 +255,74 @@ Notes:
 | JSON     | zstd (level=3) |    582,206 |            76.576 ms |
 | MATHLDBT | gzip (level=6) |    457,652 |            66.612 ms |
 | JSON     | gzip (level=6) |  1,325,434 |           136.035 ms |
+
+---
+
+## 2026-02-15 — Codec parity work (criterion, local; decode-into + bulk-copy)
+
+Date (UTC): 2026-02-15T18:15:00Z  
+Operator: codex-cli
+
+Machine:
+
+- CPU: Intel(R) Xeon(R) W-2295 CPU @ 3.00GHz (18c/36t)
+- OS: Linux 5.15.0-156-generic x86_64 GNU/Linux
+- Rust: rustc 1.90.0, cargo 1.90.0
+
+Command(s):
+
+- `cargo bench --bench mathldbt_transport`
+- `cargo bench --bench json_vs_mathldbt`
+
+Profile:
+
+- release (cargo bench; criterion)
+
+Notes:
+
+- This entry is after implementing a true `decode_into_with_workspace` + ORSX-style `unsafe` bulk-copy fast paths on little-endian.
+- `gnuplot` not found; criterion used plotters backend (this does not affect measured timings).
+
+### `mathldbt_transport` (median; lower is better)
+
+#### rows = 2,000
+
+| Benchmark | Median |
+|---|---:|
+| `encode_plain_ws` | 5.0073 µs |
+| `encode_dict_delta_ws` | 98.677 µs |
+| `decode_plain_ws` | 9.2821 µs |
+| `decode_into_plain_ws` | 8.4636 µs |
+| `decode_dict_delta_ws` | 44.816 µs |
+| `decode_into_dict_delta_ws` | 42.881 µs |
+
+#### rows = 100,000
+
+| Benchmark | Median |
+|---|---:|
+| `encode_plain_ws` | 554.60 µs |
+| `encode_dict_delta_ws` | 5.1085 ms |
+| `decode_plain_ws` | 851.11 µs |
+| `decode_into_plain_ws` | 798.08 µs |
+| `decode_dict_delta_ws` | 2.4433 ms |
+| `decode_into_dict_delta_ws` | 2.4130 ms |
+
+### `json_vs_mathldbt` (median; lower is better)
+
+#### rows = 2,000
+
+| Benchmark | Median |
+|---|---:|
+| `mathldbt_encode_ws` | 102.31 µs |
+| `mathldbt_decode_ws` | 49.308 µs |
+| `json_serialize` | 530.42 µs |
+| `json_deserialize` | 827.92 µs |
+
+#### rows = 100,000
+
+| Benchmark | Median |
+|---|---:|
+| `mathldbt_encode_ws` | 5.2750 ms |
+| `mathldbt_decode_ws` | 2.6227 ms |
+| `json_serialize` | 26.241 ms |
+| `json_deserialize` | 41.411 ms |

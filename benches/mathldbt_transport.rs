@@ -1,8 +1,8 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use mathilde_binary_transport::batch::{ColumnData, ColumnarBatch, ValidityBitmap};
 use mathilde_binary_transport::codec::mathldbt_v1::{
-    MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_mathldbt_v1_with_workspace,
-    encode_mathldbt_v1_into_with_workspace,
+    MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_mathldbt_v1_into_with_workspace,
+    decode_mathldbt_v1_with_workspace, encode_mathldbt_v1_into_with_workspace,
 };
 #[cfg(any(feature = "compression-zstd", feature = "compression-gzip"))]
 use mathilde_binary_transport::codec::mathldbt_v1_compressed::{
@@ -189,6 +189,30 @@ fn bench_transport(c: &mut Criterion) {
             })
         });
 
+        group.bench_with_input(BenchmarkId::new("decode_into_plain_ws", rows), &rows, |b, _| {
+            let mut ws = MathldbtV1DecodeWorkspace::default();
+            let mut out = ColumnarBatch::new(
+                batch.schema.clone(),
+                0,
+                batch
+                    .schema
+                    .fields()
+                    .iter()
+                    .map(|f| ColumnData::new_all_invalid(f.ty, 0).unwrap())
+                    .collect(),
+            )
+            .unwrap();
+            b.iter(|| {
+                decode_mathldbt_v1_into_with_workspace(
+                    black_box(encoded_plain.as_slice()),
+                    &mut out,
+                    &mut ws,
+                )
+                .unwrap();
+                black_box(out.row_count);
+            })
+        });
+
         group.bench_with_input(
             BenchmarkId::new("decode_dict_delta_ws", rows),
             &rows,
@@ -201,6 +225,34 @@ fn bench_transport(c: &mut Criterion) {
                     )
                     .unwrap();
                     black_box(decoded.row_count);
+                })
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("decode_into_dict_delta_ws", rows),
+            &rows,
+            |b, _| {
+                let mut ws = MathldbtV1DecodeWorkspace::default();
+                let mut out = ColumnarBatch::new(
+                    batch.schema.clone(),
+                    0,
+                    batch
+                        .schema
+                        .fields()
+                        .iter()
+                        .map(|f| ColumnData::new_all_invalid(f.ty, 0).unwrap())
+                        .collect(),
+                )
+                .unwrap();
+                b.iter(|| {
+                    decode_mathldbt_v1_into_with_workspace(
+                        black_box(encoded_opt.as_slice()),
+                        &mut out,
+                        &mut ws,
+                    )
+                    .unwrap();
+                    black_box(out.row_count);
                 })
             },
         );
