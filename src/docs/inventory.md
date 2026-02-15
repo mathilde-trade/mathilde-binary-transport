@@ -10,6 +10,8 @@ This inventory lists what currently exists in this crate. It must describe only 
 
 - Inventory (this file): `src/docs/inventory.md`
 - README (public usage and contracts): `README.md`
+- Contributing policy: `CONTRIBUTING.md`
+- CI workflow: `.github/workflows/ci.yml`
 - Evidence logs: `docs/evidence/`
 
 ## 1) Source Files
@@ -44,7 +46,8 @@ The public API is defined by modules exported from:
 - `src/lib.rs`
 
 Primary entrypoints:
-- `mathilde_binary_transport::codec::mathldbt_v1::{encode_mathldbt_v1_into, decode_mathldbt_v1, decode_mathldbt_v1_into}`
+- `mathilde_binary_transport::codec::{encode_into, encode_into_opt, decode, decode_into}`
+- `mathilde_binary_transport::codec::{encode_compressed_into, encode_compressed_into_opt, decode_compressed, decode_compressed_into}`
 
 ## 3) Workspace / `*_into` APIs
 
