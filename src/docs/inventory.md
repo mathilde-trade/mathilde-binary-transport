@@ -11,6 +11,7 @@ This inventory lists what currently exists in this crate. It must describe only 
 - Inventory (this file): `src/docs/inventory.md`
 - README (public usage and contracts): `README.md`
 - Contributing policy: `CONTRIBUTING.md`
+- Security policy: `SECURITY.md`
 - CI workflow: `.github/workflows/ci.yml`
 - Evidence logs: `docs/evidence/`
 
