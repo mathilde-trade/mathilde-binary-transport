@@ -20,9 +20,7 @@ fn enable_opt_encodings(ws: &mut MathldbtV1EncodeWorkspace) {
         .set_enable_delta_varint_i64(true);
 }
 
-// -----------------------------
 // Plain (MATHLDBT v1)
-// -----------------------------
 
 pub fn encode_into(batch: &ColumnarBatch, out: &mut Vec<u8>) -> Result<()> {
     encode_mathldbt_v1_into(batch, out)
@@ -75,9 +73,7 @@ pub fn decode_into_with_workspace(
     decode_mathldbt_v1_into_with_workspace(bytes, out, ws)
 }
 
-// -----------------------------
 // Compressed (compress(encode_v1(...)))
-// -----------------------------
 
 pub fn encode_compressed_into(
     batch: &ColumnarBatch,
@@ -171,59 +167,4 @@ pub fn decode_compressed_into_with_workspace(
         codec_ws,
         ws,
     )
-}
-
-// -----------------------------
-// Compatibility aliases (kept to avoid churn)
-// -----------------------------
-
-pub fn encode_into_workspace(
-    batch: &ColumnarBatch,
-    out: &mut Vec<u8>,
-    ws: &mut MathldbtV1EncodeWorkspace,
-) -> Result<()> {
-    encode_into_with_workspace(batch, out, ws)
-}
-
-pub fn decode_workspace(bytes: &[u8], ws: &mut MathldbtV1DecodeWorkspace) -> Result<ColumnarBatch> {
-    decode_with_workspace(bytes, ws)
-}
-
-pub fn decode_into_workspace(
-    bytes: &[u8],
-    out: &mut ColumnarBatch,
-    ws: &mut MathldbtV1DecodeWorkspace,
-) -> Result<()> {
-    decode_into_with_workspace(bytes, out, ws)
-}
-
-pub fn encode_compressed_into_workspace(
-    batch: &ColumnarBatch,
-    out: &mut Vec<u8>,
-    c: Compression,
-    codec_ws: &mut MathldbtV1EncodeWorkspace,
-    ws: &mut MathldbtV1CompressedEncodeWorkspace,
-) -> Result<()> {
-    encode_compressed_into_with_workspace(batch, out, c, codec_ws, ws)
-}
-
-pub fn decode_compressed_workspace(
-    bytes: &[u8],
-    c: Compression,
-    max_uncompressed_len: usize,
-    codec_ws: &mut MathldbtV1DecodeWorkspace,
-    ws: &mut MathldbtV1CompressedDecodeWorkspace,
-) -> Result<ColumnarBatch> {
-    decode_compressed_with_workspace(bytes, c, max_uncompressed_len, codec_ws, ws)
-}
-
-pub fn decode_compressed_into_workspace(
-    bytes: &[u8],
-    c: Compression,
-    max_uncompressed_len: usize,
-    out: &mut ColumnarBatch,
-    codec_ws: &mut MathldbtV1DecodeWorkspace,
-    ws: &mut MathldbtV1CompressedDecodeWorkspace,
-) -> Result<()> {
-    decode_compressed_into_with_workspace(bytes, c, max_uncompressed_len, out, codec_ws, ws)
 }
