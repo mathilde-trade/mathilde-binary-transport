@@ -49,17 +49,22 @@ The encoder/decoder implements strict validation (bounds, lengths, offsets) and 
 Add the crate and encode/decode a `ColumnarBatch`:
 
 ```rust
-use mathilde_binary_transport::codec::exports::encode_into;
-use mathilde_binary_transport::codec::mathldbt_v1::decode_mathldbt_v1;
+use mathilde_binary_transport::codec::exports::{decode, encode_into_opt};
 
 // Build a ColumnarBatch (see `mathilde_binary_transport::batch`).
 // let batch: ColumnarBatch = ...;
 
 let mut bytes = Vec::new();
-encode_into(&batch, &mut bytes)?;
+encode_into_opt(&batch, &mut bytes)?;
 
-let decoded = decode_mathldbt_v1(&bytes)?;
+let decoded = decode(&bytes)?;
 ```
+
+`encode_into_opt` enables the opt-in encodings when eligible:
+- `DictUtf8` for `Utf8`/`JsonbText` columns
+- `DeltaVarintI64` for all-valid `I64`/`TimestampTzMicros` columns
+
+If you want plain encodings only, use `encode_into`.
 
 ## Quickstart (compressed)
 
@@ -67,19 +72,19 @@ If you want to compress the `MATHLDBT` bytes for transport, enable a feature and
 
 This is parameter-driven compression:
 
-`compressed_bytes = compress( encode_mathldbt_v1(batch) )`
+`compressed_bytes = compress( MATHLDBT_v1_bytes(batch) )`
 
 Example (zstd):
 
 ```rust
-use mathilde_binary_transport::codec::mathldbt_v1_compressed::{
-    Compression, decode_mathldbt_v1_compressed, encode_mathldbt_v1_compressed_into,
+use mathilde_binary_transport::codec::exports::{
+    Compression, decode_compressed, encode_compressed_into_opt,
 };
 
 let mut bytes = Vec::new();
-encode_mathldbt_v1_compressed_into(&batch, &mut bytes, Compression::Zstd { level: 3 })?;
+encode_compressed_into_opt(&batch, &mut bytes, Compression::Zstd { level: 3 })?;
 
-let decoded = decode_mathldbt_v1_compressed(
+let decoded = decode_compressed(
     &bytes,
     Compression::Zstd { level: 3 },
     64 * 1024 * 1024,
@@ -95,17 +100,17 @@ Features:
 For repeated calls, reuse workspaces to avoid repeated allocations and to keep behavior deterministic:
 
 ```rust
-use mathilde_binary_transport::codec::mathldbt_v1::{
-    decode_mathldbt_v1_with_workspace, encode_mathldbt_v1_into_with_workspace,
-    MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace,
+use mathilde_binary_transport::codec::exports::{
+    MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_with_workspace,
+    encode_into_with_workspace,
 };
 
 let mut enc_ws = MathldbtV1EncodeWorkspace::default();
 let mut dec_ws = MathldbtV1DecodeWorkspace::default();
 let mut bytes = Vec::new();
 
-encode_mathldbt_v1_into_with_workspace(&batch, &mut bytes, &mut enc_ws)?;
-let decoded = decode_mathldbt_v1_with_workspace(&bytes, &mut dec_ws)?;
+encode_into_with_workspace(&batch, &mut bytes, &mut enc_ws)?;
+let decoded = decode_with_workspace(&bytes, &mut dec_ws)?;
 ```
 
 ## Encoding options (opt-in)
@@ -119,9 +124,14 @@ Two encodings exist but are opt-in (no silent behavior change):
 They are controlled through `MathldbtV1EncodeWorkspace`:
 
 ```rust
+use mathilde_binary_transport::codec::exports::{MathldbtV1EncodeWorkspace, encode_into_with_workspace};
+
 let mut ws = MathldbtV1EncodeWorkspace::default();
 ws.set_enable_dict_utf8(true)
   .set_enable_delta_varint_i64(true);
+
+let mut bytes = Vec::new();
+encode_into_with_workspace(&batch, &mut bytes, &mut ws)?;
 ```
 
 Encoding eligibility and determinism rules are specified in:
@@ -135,7 +145,7 @@ This repository separates two concerns:
 - The `MATHLDBT` v1 envelope is the lossless, deterministic payload format.
 - Compression (gzip/zstd) is a wire-layer choice.
 
-The compressed helpers in `codec::mathldbt_v1_compressed` are provided for convenience, but the format intentionally does not introduce a second “compression frame” or embedded algorithm id.
+The compressed helpers are provided for convenience, but the format intentionally does not introduce a second “compression frame” or embedded algorithm id.
 
 The decoder requires `max_uncompressed_len` to bound decompression. The right value is application-dependent (we do not recommend a default in this repo yet).
 

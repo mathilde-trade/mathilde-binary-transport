@@ -89,7 +89,11 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
                 .to_string();
             out.push(ComponentInventory {
                 kind: ComponentKind::Crate,
-                name: if name.is_empty() { "root".to_string() } else { name },
+                name: if name.is_empty() {
+                    "root".to_string()
+                } else {
+                    name
+                },
                 inventory_path: inv,
                 source_root: repo_root.to_path_buf(),
             });
@@ -534,7 +538,7 @@ fn main() -> Result<(), String> {
     lines.push("Protocol: `docs/inventory_template.md`".to_string());
     lines.push("".to_string());
     lines.push(
-        "This file is generated from per-component inventories under `*/src/docs/inventory.md` (preferred) and legacy `*/docs/inventory.md`."
+        "This file is generated from per-component inventories under `*/src/docs/inventory.md`"
             .to_string(),
     );
     lines.push(

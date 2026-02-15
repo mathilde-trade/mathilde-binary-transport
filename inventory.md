@@ -1,9 +1,9 @@
 # `mathilde-binary-transport` — Global Inventory (GENERATED; DO NOT EDIT)
 
-Generated: 2026-02-15T08:19:42Z
+Generated: 2026-02-15T08:31:32Z
 Protocol: `docs/inventory_template.md`
 
-This file is generated from per-component inventories under `*/src/docs/inventory.md` (preferred) and legacy `*/docs/inventory.md`.
+This file is generated from per-component inventories under `*/src/docs/inventory.md`
 If a file purpose is missing in a component inventory, this file will mark it as `INVENTORY GAP`.
 
 ## Components
