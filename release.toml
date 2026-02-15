@@ -6,8 +6,8 @@ push = true
 push-remote = "origin"
 
 tag = true
-tag-name = "ta-v{{version}}"
-tag-message = "chore: Release ta-v{{version}}"
+tag-name = "mbt-v{{version}}"
+tag-message = "chore: Release mbt-v{{version}}"
 
 pre-release-commit-message = "chore: Release ta-v{{version}}"
 
