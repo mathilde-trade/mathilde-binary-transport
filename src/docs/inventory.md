@@ -2,13 +2,13 @@
 
 Protocol: `docs/inventory_template.md`
 
-This inventory lists what currently exists in this crate. It describes only implemented code and artifacts.
+This inventory lists what currently exists in this crate. It must describe only implemented code and artifacts.
 
 ---
 
 ## 0) Module documentation (artifacts)
 
-- Inventory (this file): `docs/inventory.md`
+- Inventory (this file): `src/docs/inventory.md`
 - README (public usage and contracts): `README.md`
 - Evidence logs: `docs/evidence/`
 
@@ -20,6 +20,7 @@ This inventory lists what currently exists in this crate. It describes only impl
 - `src/batch.rs`: in-memory batch model (`ColumnarBatch`, `ColumnData`, validity bitmap, invariant validation).
 
 - `src/codec/mod.rs`: codec module namespace.
+- `src/codec/exports.rs`: stable convenience entrypoints for common encode/decode operations.
 - `src/codec/mathldbt_v1.rs`: `MATHLDBT` v1 encoder/decoder implementation (lossless; strict validation; opt-in DictUtf8 and DeltaVarintI64).
 - `src/codec/mathldbt_v1_compressed.rs`: optional compression helpers (zstd/gzip feature-gated) that compress/decompress the v1 encoded bytes with bounded decompression.
 
@@ -61,3 +62,4 @@ Determinism requirements are specified in:
 ## 5) Benchmarks (harness files)
 
 - `benches/mathldbt_transport.rs`
+- `benches/json_vs_mathldbt.rs`

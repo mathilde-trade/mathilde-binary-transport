@@ -49,15 +49,14 @@ The encoder/decoder implements strict validation (bounds, lengths, offsets) and 
 Add the crate and encode/decode a `ColumnarBatch`:
 
 ```rust
-use mathilde_binary_transport::codec::mathldbt_v1::{
-    decode_mathldbt_v1, encode_mathldbt_v1_into,
-};
+use mathilde_binary_transport::codec::exports::encode_into;
+use mathilde_binary_transport::codec::mathldbt_v1::decode_mathldbt_v1;
 
 // Build a ColumnarBatch (see `mathilde_binary_transport::batch`).
 // let batch: ColumnarBatch = ...;
 
 let mut bytes = Vec::new();
-encode_mathldbt_v1_into(&batch, &mut bytes)?;
+encode_into(&batch, &mut bytes)?;
 
 let decoded = decode_mathldbt_v1(&bytes)?;
 ```
@@ -193,16 +192,16 @@ Run it (example with JSON + zstd/gzip enabled):
 ## Inventory generation
 
 This repo maintains:
-- component inventory: `docs/inventory.md`
+- component inventory: `src/docs/inventory.md`
 - generated global inventory: `inventory.md`
 
-Generate `inventory.md` from `docs/inventory.md`:
+Generate `inventory.md` from `src/docs/inventory.md`:
 
 ```bash
 cargo make inventory
 ```
 
-This runs `bin/generate_global_inventory.rs` in strict mode and fails if any `.rs` file is missing a 1-line purpose in `docs/inventory.md`.
+This runs `bin/generate_global_inventory.rs` in strict mode and fails if any `.rs` file is missing a 1-line purpose in `src/docs/inventory.md`.
 
 ## License
 

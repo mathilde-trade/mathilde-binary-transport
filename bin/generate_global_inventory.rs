@@ -61,7 +61,6 @@ fn rel_path(repo_root: &Path, path: &Path) -> Result<String, String> {
 enum ComponentKind {
     Crate,
     Service,
-    Module,
 }
 
 #[derive(Debug, Clone)]
@@ -76,10 +75,12 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
     let mut out: Vec<ComponentInventory> = Vec::new();
 
     // Root crate discovery: a single-crate repo may keep `Cargo.toml` at repo root.
-    // If `docs/inventory.md` exists at the root, treat it as a crate component.
+    // If an inventory exists at the root, treat it as a crate component.
     {
         let manifest = repo_root.join("Cargo.toml");
-        let inv = repo_root.join("docs").join("inventory.md");
+        let inv = repo_root.join("src").join("docs").join("inventory.md");
+        let inv_legacy = repo_root.join("docs").join("inventory.md");
+        let inv = if inv.is_file() { inv } else { inv_legacy };
         if manifest.is_file() && inv.is_file() {
             let name = repo_root
                 .file_name()
@@ -130,7 +131,9 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
         if !manifest.is_file() {
             continue;
         }
-        let inv = p.join("docs").join("inventory.md");
+        let inv = p.join("src").join("docs").join("inventory.md");
+        let inv_legacy = p.join("docs").join("inventory.md");
+        let inv = if inv.is_file() { inv } else { inv_legacy };
         if inv.is_file() {
             out.push(ComponentInventory {
                 kind: ComponentKind::Crate,
@@ -164,7 +167,9 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
             if name.is_empty() {
                 continue;
             }
-            let inv = p.join("docs").join("inventory.md");
+            let inv = p.join("src").join("docs").join("inventory.md");
+            let inv_legacy = p.join("docs").join("inventory.md");
+            let inv = if inv.is_file() { inv } else { inv_legacy };
             if inv.is_file() {
                 out.push(ComponentInventory {
                     kind,
@@ -173,40 +178,6 @@ fn discover_component_inventories(repo_root: &Path) -> Result<Vec<ComponentInven
                     source_root: p,
                 });
                 continue;
-            }
-
-            // Optional module inventories: `<component>/src/<module>/docs/inventory.md`.
-            if kind == ComponentKind::Crate {
-                let modules_base = p.join("src");
-                if modules_base.is_dir() {
-                    for m_entry in fs::read_dir(&modules_base)
-                        .map_err(|e| format!("read_dir failed: {modules_base:?}: {e}"))?
-                    {
-                        let m_entry = m_entry.map_err(|e| format!("read_dir entry failed: {e}"))?;
-                        let m_dir = m_entry.path();
-                        if !m_dir.is_dir() {
-                            continue;
-                        }
-                        let module_name = m_dir
-                            .file_name()
-                            .unwrap_or_else(|| OsStr::new(""))
-                            .to_string_lossy()
-                            .to_string();
-                        if module_name.is_empty() {
-                            continue;
-                        }
-                        let m_inv = m_dir.join("docs").join("inventory.md");
-                        if !m_inv.is_file() {
-                            continue;
-                        }
-                        out.push(ComponentInventory {
-                            kind: ComponentKind::Module,
-                            name: format!("{name}::{module_name}"),
-                            inventory_path: m_inv,
-                            source_root: m_dir,
-                        });
-                    }
-                }
             }
         }
     }
@@ -563,11 +534,7 @@ fn main() -> Result<(), String> {
     lines.push("Protocol: `docs/inventory_template.md`".to_string());
     lines.push("".to_string());
     lines.push(
-        "This file is generated from per-component inventories under `*/docs/inventory.md` (workspace crates) and optionally `crates/*/docs/inventory.md` / `services/*/docs/inventory.md`."
-            .to_string(),
-    );
-    lines.push(
-        "If a component does not have a top-level `docs/inventory.md`, this generator may also include module inventories under `<component>/src/*/docs/inventory.md` when present."
+        "This file is generated from per-component inventories under `*/src/docs/inventory.md` (preferred) and legacy `*/docs/inventory.md`."
             .to_string(),
     );
     lines.push(
@@ -584,7 +551,6 @@ fn main() -> Result<(), String> {
         let kind_str = match inv.kind {
             ComponentKind::Crate => "crate",
             ComponentKind::Service => "service",
-            ComponentKind::Module => "module",
         };
         lines.push(format!("- `{kind_str}::{}`: `{inv_rel}`", inv.name));
     }

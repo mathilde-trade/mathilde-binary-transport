@@ -187,17 +187,23 @@ Notes:
 
 Results (bytes + WAN estimate only):
 
-- rows=2,000, rtt=30ms, bandwidth=100Mbit/s:
-  - plain MATHLDBT: 92,263 bytes (t_transfer ~37.381 ms)
-  - JSON: 254,001 bytes (t_transfer ~50.320 ms)
-  - zstd(level=3): 8,120 bytes (t_transfer ~30.650 ms)
-  - gzip(level=6): 10,769 bytes (t_transfer ~30.862 ms)
+### rows = 2,000 (rtt=30ms, bandwidth=100Mbit/s)
 
-- rows=100,000, rtt=30ms, bandwidth=100Mbit/s:
-  - plain MATHLDBT: 4,600,263 bytes (t_transfer ~398.021 ms)
-  - JSON: 12,700,001 bytes (t_transfer ~1.046000 s)
-  - zstd(level=3): 293,862 bytes (t_transfer ~53.509 ms)
-  - gzip(level=6): 457,652 bytes (t_transfer ~66.612 ms)
+| Payload | Compression | Bytes | Estimated t_transfer |
+|---|---:|---:|---:|
+| MATHLDBT | none | 92,263 | 37.381 ms |
+| JSON | none | 254,001 | 50.320 ms |
+| MATHLDBT | zstd (level=3) | 8,120 | 30.650 ms |
+| MATHLDBT | gzip (level=6) | 10,769 | 30.862 ms |
+
+### rows = 100,000 (rtt=30ms, bandwidth=100Mbit/s)
+
+| Payload | Compression | Bytes | Estimated t_transfer |
+|---|---:|---:|---:|
+| MATHLDBT | none | 4,600,263 | 398.021 ms |
+| JSON | none | 12,700,001 | 1.046000 s |
+| MATHLDBT | zstd (level=3) | 293,862 | 53.509 ms |
+| MATHLDBT | gzip (level=6) | 457,652 | 66.612 ms |
 
 ---
 
@@ -224,7 +230,9 @@ WAN model:
 
 Notes:
 
-- This entry compares wire bytes for JSON and MATHLDBT under the same compressors.\n+- Compression settings: zstd level=3, gzip level=6.\n+- Compression is lossless; JSON compressed sizes are validated by decompress+deserialize.
+- This entry compares wire bytes for JSON and MATHLDBT under the same compressors.
+- Compression settings: zstd level=3, gzip level=6.
+- Compression is lossless; JSON compressed sizes are validated by decompress+deserialize.
 
 ### rows = 2,000
 

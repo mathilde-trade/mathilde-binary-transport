@@ -1,0 +1,86 @@
+{
+	"editor.formatOnSave": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll.eslint": "always",
+		"source.fixAll": "always",
+		"source.organizeImports": "explicit"
+	},
+
+	"rust-analyzer.completion.autoimport.enable": true,
+	"rust-analyzer.completion.autoself.enable": true,
+	"rust-analyzer.imports.granularity.group": "module",
+	"rust-analyzer.imports.prefix": "crate",
+
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[json]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[sql]": {
+		"editor.defaultFormatter": "adpyke.vscode-sql-formatter",
+		"editor.formatOnSave": false,
+		"editor.tabSize": 2
+	},
+	"[rust]": {
+		"editor.defaultFormatter": "rust-lang.rust-analyzer",
+		"editor.formatOnSave": true, // ENABLE formatting but...
+		"editor.formatOnPaste": true,
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "explicit" // ONLY organize imports, NO fixAll
+		},
+		"prettier.enable": false
+	},
+
+	// === RUST ANALYZER SETTINGS FOR MANUAL CHECK ONLY ===
+	"rust-analyzer.checkOnSave.enable": true, // NO cargo check on save
+	"rust-analyzer.diagnostics.enable": true, // Show diagnostics from manual cargo check
+	"rust-analyzer.diagnostics.disabled": [], // Enable all diagnostic types
+	"rust-analyzer.diagnostics.experimental.enable": true,
+	"rust-analyzer.server.extraEnv": {},
+	"rust-analyzer.cargo.autoreload": true,
+
+	"[toml]": {
+		"editor.defaultFormatter": "tamasfe.even-better-toml",
+		"editor.formatOnSave": true,
+		"editor.formatOnPaste": true,
+		"prettier.enable": false
+	},
+	"eslint.validate": ["javascript", "typescript", "typescriptreact"],
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"files.associations": {
+		"*.sql": "sql",
+		"*.rs": "rust",
+		"*.toml": "toml",
+		"Cargo.toml": "toml",
+		"rustfmt.toml": "toml"
+	},
+
+	// Disable formatting for migration files to preserve PostgreSQL dollar quotes
+	"[**/*migration*.sql]": {
+		"editor.formatOnSave": false,
+		"editor.formatOnPaste": false
+	},
+	"[**/migrations/*.sql]": {
+		"editor.formatOnSave": false,
+		"editor.formatOnPaste": false
+	},
+
+	"sqlFormatter": {
+		"uppercase": true,
+		"linesBetweenQueries": 2,
+		"indentStyle": "spaces",
+		"keywordCase": "upper",
+		"dataTypeCase": "upper",
+		"functionCase": "upper",
+		"indent": "  "
+	},
+	"git.ignoreLimitWarning": true
+}

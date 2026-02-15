@@ -1,15 +1,14 @@
 # `mathilde-binary-transport` — Global Inventory (GENERATED; DO NOT EDIT)
 
-Generated: 2026-02-14T18:54:57Z
+Generated: 2026-02-15T08:19:42Z
 Protocol: `docs/inventory_template.md`
 
-This file is generated from per-component inventories under `*/docs/inventory.md` (workspace crates) and optionally `crates/*/docs/inventory.md` / `services/*/docs/inventory.md`.
-If a component does not have a top-level `docs/inventory.md`, this generator may also include module inventories under `<component>/src/*/docs/inventory.md` when present.
+This file is generated from per-component inventories under `*/src/docs/inventory.md` (preferred) and legacy `*/docs/inventory.md`.
 If a file purpose is missing in a component inventory, this file will mark it as `INVENTORY GAP`.
 
 ## Components
 
-- `crate::mathilde-binary-transport`: `docs/inventory.md`
+- `crate::mathilde-binary-transport`: `src/docs/inventory.md`
 
 ---
 
@@ -17,7 +16,7 @@ If a file purpose is missing in a component inventory, this file will mark it as
 
 ### Artifacts
 
-- Inventory: `docs/inventory.md`
+- Inventory: `src/docs/inventory.md`
 - Evidence: `docs/evidence/bench_results.md`
 - Benches: `benches/json_vs_mathldbt.rs`
 - Benches: `benches/mathldbt_transport.rs`
@@ -29,6 +28,7 @@ If a file purpose is missing in a component inventory, this file will mark it as
 - `bin/generate_global_inventory.rs`: standalone global inventory generator (`rustc`-compiled; strict mode detects missing file purposes).
 - `src/batch.rs`: in-memory batch model (`ColumnarBatch`, `ColumnData`, validity bitmap, invariant validation).
 - `src/bin/transport_pipeline_estimator.rs`: small CLI to print byte sizes and a deterministic WAN transfer estimate for a fixed RTT/bandwidth model.
+- `src/codec/exports.rs`: stable convenience entrypoints for common encode/decode operations.
 - `src/codec/mathldbt_v1.rs`: `MATHLDBT` v1 encoder/decoder implementation (lossless; strict validation; opt-in DictUtf8 and DeltaVarintI64).
 - `src/codec/mathldbt_v1_compressed.rs`: optional compression helpers (zstd/gzip feature-gated) that compress/decompress the v1 encoded bytes with bounded decompression.
 - `src/codec/mod.rs`: codec module namespace.
