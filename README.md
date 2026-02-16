@@ -8,6 +8,7 @@
 - [Quickstart (plain)](#quickstart-plain)
 - [Quickstart (compressed)](#quickstart-compressed)
 - [Workspace APIs](#workspace-apis)
+- [Fast-path encoding (borrowed view)](#fast-path-encoding-borrowed-view)
 - [Encoding options (opt-in)](#encoding-options-opt-in)
 - [Compression model (wire layer)](#compression-model-wire-layer)
 - [Determinism and correctness](#determinism-and-correctness)
@@ -49,7 +50,7 @@ The encoder/decoder implements strict validation (bounds, lengths, offsets) and 
 Add the crate and encode/decode a `ColumnarBatch`:
 
 ```rust
-use mathilde_binary_transport::codec::exports::{decode, encode_into_opt};
+use mathilde_binary_transport::codec::{decode, encode_into_opt};
 
 // Build a ColumnarBatch (see `mathilde_binary_transport::batch`).
 // let batch: ColumnarBatch = ...;
@@ -77,9 +78,7 @@ This is parameter-driven compression:
 Example (zstd):
 
 ```rust
-use mathilde_binary_transport::codec::exports::{
-    Compression, decode_compressed, encode_compressed_into_opt,
-};
+use mathilde_binary_transport::codec::{Compression, decode_compressed, encode_compressed_into_opt};
 
 let mut bytes = Vec::new();
 encode_compressed_into_opt(&batch, &mut bytes, Compression::Zstd { level: 3 })?;
@@ -100,7 +99,7 @@ Features:
 For repeated calls, reuse workspaces to avoid repeated allocations and to keep behavior deterministic:
 
 ```rust
-use mathilde_binary_transport::codec::exports::{
+use mathilde_binary_transport::codec::{
     MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_with_workspace,
     encode_into_with_workspace,
 };
@@ -113,6 +112,25 @@ encode_into_with_workspace(&batch, &mut bytes, &mut enc_ws)?;
 let decoded = decode_with_workspace(&bytes, &mut dec_ws)?;
 ```
 
+## Fast-path encoding (borrowed view)
+
+If you already have column buffers borrowed from somewhere else (for example, an upstream columnar representation), you can encode directly from a borrowed view without constructing an owned `ColumnarBatch`.
+
+This is encode-only: decode always returns an owned `ColumnarBatch`.
+
+Fast-path entrypoints:
+
+- `mathilde_binary_transport::codec::{encode_fast_path_into, encode_fast_path_into_opt}`
+- `mathilde_binary_transport::codec::{encode_compressed_fast_path_into, encode_compressed_fast_path_into_opt}`
+
+The borrowed input types are in `mathilde_binary_transport::batch_view`:
+
+- `ColumnarBatchView`
+- `ColumnDataView`
+- `VarDataView::{Contiguous, Chunks}`
+
+For a complete example of constructing a `ColumnarBatchView`, see `benches/mathldbt_transport.rs`.
+
 ## Encoding options (opt-in)
 
 The default encoding is plain fixed-width / plain varlen.
@@ -124,7 +142,7 @@ Two encodings exist but are opt-in (no silent behavior change):
 They are controlled through `MathldbtV1EncodeWorkspace`:
 
 ```rust
-use mathilde_binary_transport::codec::exports::{MathldbtV1EncodeWorkspace, encode_into_with_workspace};
+use mathilde_binary_transport::codec::{MathldbtV1EncodeWorkspace, encode_into_with_workspace};
 
 let mut ws = MathldbtV1EncodeWorkspace::default();
 ws.set_enable_dict_utf8(true)
@@ -187,6 +205,8 @@ Bench harnesses:
 - `cargo bench --bench json_vs_mathldbt`
 
 Bench inputs are deterministic “bars-like” fixtures (not a DB snapshot). JSON baselines use `serde_json` row structs (JSON includes field names).
+
+`mathldbt_transport` includes both owned encode/decode benches and fast-path encode benches.
 
 ## WAN estimate tool
 

@@ -1,6 +1,6 @@
 # `mathilde-binary-transport` — Global Inventory (GENERATED; DO NOT EDIT)
 
-Generated: 2026-02-15T18:39:51Z
+Generated: 2026-02-16T08:50:35Z
 Protocol: `docs/inventory_template.md`
 
 This file is generated from per-component inventories under `*/src/docs/inventory.md`
@@ -27,6 +27,7 @@ If a file purpose is missing in a component inventory, this file will mark it as
 - `benches/mathldbt_transport.rs`: Criterion transport benches (encode/decode; workspace reuse; optional encodings).
 - `bin/generate_global_inventory.rs`: standalone global inventory generator (`rustc`-compiled; strict mode detects missing file purposes).
 - `src/batch.rs`: in-memory batch model (`ColumnarBatch`, `ColumnData`, validity bitmap, invariant validation).
+- `src/batch_view.rs`: borrowed batch view model (`ColumnarBatchView`, `ColumnDataView`, `VarDataView`) used by fast-path encoding.
 - `src/bin/transport_pipeline_estimator.rs`: small CLI to print byte sizes and a deterministic WAN transfer estimate for a fixed RTT/bandwidth model.
 - `src/codec/exports.rs`: stable convenience entrypoints for common encode/decode operations.
 - `src/codec/mathldbt_v1.rs`: `MATHLDBT` v1 encoder/decoder implementation (lossless; strict validation; opt-in DictUtf8 and DeltaVarintI64).
@@ -42,5 +43,6 @@ If a file purpose is missing in a component inventory, this file will mark it as
 - `src/tests/test_mathldbt_v1_compressed.rs`: tests for compressed helpers (round-trip, determinism, bounds enforcement, and feature-gate errors).
 - `src/tests/test_mathldbt_v1_decode_into_equivalence.rs`: `decode_into` correctness vs allocating decode (plain + dict/delta).
 - `src/tests/test_mathldbt_v1_decode_into_reuse_smoke.rs`: `decode_into` reuse smoke test (call twice on the same destination).
+- `src/tests/test_mathldbt_v1_fast_path.rs`: fast-path encode tests (owned-vs-view byte equality; determinism; adversarial invalid views; compressed equivalence).
 
 ---

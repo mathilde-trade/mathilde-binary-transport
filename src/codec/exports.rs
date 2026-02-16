@@ -1,13 +1,19 @@
 use crate::Result;
 use crate::batch::ColumnarBatch;
+use crate::batch_view::ColumnarBatchView;
 use crate::codec::mathldbt_v1::{
     decode_mathldbt_v1, decode_mathldbt_v1_into_with_workspace, decode_mathldbt_v1_with_workspace,
+    encode_mathldbt_v1_fast_path_into, encode_mathldbt_v1_fast_path_into_opt_with_workspace,
+    encode_mathldbt_v1_fast_path_into_with_workspace,
     encode_mathldbt_v1_into, encode_mathldbt_v1_into_with_workspace,
 };
 use crate::codec::mathldbt_v1_compressed::{
     decode_mathldbt_v1_compressed, decode_mathldbt_v1_compressed_into_with_workspace,
     decode_mathldbt_v1_compressed_with_workspace, encode_mathldbt_v1_compressed_into,
     encode_mathldbt_v1_compressed_into_with_workspace,
+    encode_mathldbt_v1_compressed_fast_path_into,
+    encode_mathldbt_v1_compressed_fast_path_into_opt_with_workspace,
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace,
 };
 
 pub use crate::codec::mathldbt_v1::{MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace};
@@ -47,6 +53,35 @@ pub fn encode_into_opt_with_workspace(
 ) -> Result<()> {
     enable_opt_encodings(ws);
     encode_mathldbt_v1_into_with_workspace(batch, out, ws)
+}
+
+// Fast-path (MATHLDBT v1; borrowed view)
+
+pub fn encode_fast_path_into(view: &ColumnarBatchView<'_>, out: &mut Vec<u8>) -> Result<()> {
+    encode_mathldbt_v1_fast_path_into(view, out)
+}
+
+pub fn encode_fast_path_into_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    ws: &mut MathldbtV1EncodeWorkspace,
+) -> Result<()> {
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, out, ws)
+}
+
+pub fn encode_fast_path_into_opt(view: &ColumnarBatchView<'_>, out: &mut Vec<u8>) -> Result<()> {
+    let mut ws = MathldbtV1EncodeWorkspace::default();
+    ws.set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, out, &mut ws)
+}
+
+pub fn encode_fast_path_into_opt_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    ws: &mut MathldbtV1EncodeWorkspace,
+) -> Result<()> {
+    encode_mathldbt_v1_fast_path_into_opt_with_workspace(view, out, ws)
 }
 
 pub fn decode(bytes: &[u8]) -> Result<ColumnarBatch> {
@@ -113,6 +148,49 @@ pub fn encode_compressed_into_opt_with_workspace(
 ) -> Result<()> {
     enable_opt_encodings(codec_ws);
     encode_mathldbt_v1_compressed_into_with_workspace(batch, out, c, codec_ws, ws)
+}
+
+// Fast-path compressed (compress(encode_v1_fast_path(...)))
+
+pub fn encode_compressed_fast_path_into(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+) -> Result<()> {
+    encode_mathldbt_v1_compressed_fast_path_into(view, out, c)
+}
+
+pub fn encode_compressed_fast_path_into_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+    codec_ws: &mut MathldbtV1EncodeWorkspace,
+    ws: &mut MathldbtV1CompressedEncodeWorkspace,
+) -> Result<()> {
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace(view, out, c, codec_ws, ws)
+}
+
+pub fn encode_compressed_fast_path_into_opt(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+) -> Result<()> {
+    let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+    codec_ws
+        .set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    let mut ws = MathldbtV1CompressedEncodeWorkspace::default();
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace(view, out, c, &mut codec_ws, &mut ws)
+}
+
+pub fn encode_compressed_fast_path_into_opt_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+    codec_ws: &mut MathldbtV1EncodeWorkspace,
+    ws: &mut MathldbtV1CompressedEncodeWorkspace,
+) -> Result<()> {
+    encode_mathldbt_v1_compressed_fast_path_into_opt_with_workspace(view, out, c, codec_ws, ws)
 }
 
 pub fn decode_compressed(

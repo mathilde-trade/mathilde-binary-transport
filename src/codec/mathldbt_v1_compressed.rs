@@ -1,9 +1,11 @@
 use crate::batch::ColumnarBatch;
 use crate::codec::mathldbt_v1::{
     MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_mathldbt_v1_into_with_workspace,
-    decode_mathldbt_v1_with_workspace, encode_mathldbt_v1_into_with_workspace,
+    decode_mathldbt_v1_with_workspace, encode_mathldbt_v1_fast_path_into_with_workspace,
+    encode_mathldbt_v1_into_with_workspace,
 };
 use crate::{Error, Result};
+use crate::batch_view::ColumnarBatchView;
 
 #[cfg(any(feature = "compression-zstd", feature = "compression-gzip"))]
 use std::io::Read;
@@ -369,6 +371,71 @@ pub fn encode_mathldbt_v1_compressed_into_with_workspace(
         }
         Compression::Gzip { level } => compress_gzip_into(out, ws.plain.as_slice(), level),
     }
+}
+
+pub fn encode_mathldbt_v1_compressed_fast_path_into(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+) -> Result<()> {
+    let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+    let mut ws = MathldbtV1CompressedEncodeWorkspace::default();
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace(view, out, c, &mut codec_ws, &mut ws)
+}
+
+pub fn encode_mathldbt_v1_compressed_fast_path_into_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+    codec_ws: &mut MathldbtV1EncodeWorkspace,
+    ws: &mut MathldbtV1CompressedEncodeWorkspace,
+) -> Result<()> {
+    ws.plain.clear();
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, &mut ws.plain, codec_ws)?;
+
+    match c {
+        Compression::None => {
+            compress_none_into(out, ws.plain.as_slice());
+            Ok(())
+        }
+        Compression::Zstd { level } => {
+            #[cfg(feature = "compression-zstd")]
+            {
+                compress_zstd_into(out, ws.plain.as_slice(), level, &mut ws.zstd)
+            }
+            #[cfg(not(feature = "compression-zstd"))]
+            {
+                compress_zstd_into(out, ws.plain.as_slice(), level)
+            }
+        }
+        Compression::Gzip { level } => compress_gzip_into(out, ws.plain.as_slice(), level),
+    }
+}
+
+pub fn encode_mathldbt_v1_compressed_fast_path_into_opt(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+) -> Result<()> {
+    let mut codec_ws = MathldbtV1EncodeWorkspace::default();
+    codec_ws
+        .set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    let mut ws = MathldbtV1CompressedEncodeWorkspace::default();
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace(view, out, c, &mut codec_ws, &mut ws)
+}
+
+pub fn encode_mathldbt_v1_compressed_fast_path_into_opt_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    c: Compression,
+    codec_ws: &mut MathldbtV1EncodeWorkspace,
+    ws: &mut MathldbtV1CompressedEncodeWorkspace,
+) -> Result<()> {
+    codec_ws
+        .set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    encode_mathldbt_v1_compressed_fast_path_into_with_workspace(view, out, c, codec_ws, ws)
 }
 
 pub fn decode_mathldbt_v1_compressed(

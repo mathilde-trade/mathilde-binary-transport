@@ -21,6 +21,7 @@ This inventory lists what currently exists in this crate. It must describe only 
 - `src/error.rs`: crate error type (`Error`) and `Result<T>` alias.
 - `src/schema.rs`: schema types (`ColumnarType`, `ColumnarField`, `ColumnarSchema`).
 - `src/batch.rs`: in-memory batch model (`ColumnarBatch`, `ColumnData`, validity bitmap, invariant validation).
+- `src/batch_view.rs`: borrowed batch view model (`ColumnarBatchView`, `ColumnDataView`, `VarDataView`) used by fast-path encoding.
 
 - `src/codec/mod.rs`: codec module namespace.
 - `src/codec/exports.rs`: stable convenience entrypoints for common encode/decode operations.
@@ -32,6 +33,7 @@ This inventory lists what currently exists in this crate. It must describe only 
 - `src/tests/test_mathldbt_v1.rs`: `MATHLDBT` round-trip and determinism tests.
 - `src/tests/test_mathldbt_v1_adversarial.rs`: adversarial decode tests (truncation/malformed payloads; deterministic errors).
 - `src/tests/test_mathldbt_v1_compressed.rs`: tests for compressed helpers (round-trip, determinism, bounds enforcement, and feature-gate errors).
+- `src/tests/test_mathldbt_v1_fast_path.rs`: fast-path encode tests (owned-vs-view byte equality; determinism; adversarial invalid views; compressed equivalence).
 - `src/tests/test_mathldbt_v1_decode_into_equivalence.rs`: `decode_into` correctness vs allocating decode (plain + dict/delta).
 - `src/tests/test_mathldbt_v1_decode_into_reuse_smoke.rs`: `decode_into` reuse smoke test (call twice on the same destination).
 
@@ -50,7 +52,9 @@ The public API is defined by modules exported from:
 
 Primary entrypoints:
 - `mathilde_binary_transport::codec::{encode_into, encode_into_opt, decode, decode_into}`
+- `mathilde_binary_transport::codec::{encode_fast_path_into, encode_fast_path_into_opt}`
 - `mathilde_binary_transport::codec::{encode_compressed_into, encode_compressed_into_opt, decode_compressed, decode_compressed_into}`
+- `mathilde_binary_transport::codec::{encode_compressed_fast_path_into, encode_compressed_fast_path_into_opt}`
 
 ## 3) Workspace / `*_into` APIs
 

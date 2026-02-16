@@ -1,8 +1,10 @@
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use mathilde_binary_transport::batch::{ColumnData, ColumnarBatch, ValidityBitmap};
+use mathilde_binary_transport::batch_view::{ColumnDataView, ColumnarBatchView, VarDataView};
 use mathilde_binary_transport::codec::mathldbt_v1::{
     MathldbtV1DecodeWorkspace, MathldbtV1EncodeWorkspace, decode_mathldbt_v1_into_with_workspace,
     decode_mathldbt_v1_with_workspace, encode_mathldbt_v1_into_with_workspace,
+    encode_mathldbt_v1_fast_path_into_with_workspace,
 };
 #[cfg(any(feature = "compression-zstd", feature = "compression-gzip"))]
 use mathilde_binary_transport::codec::mathldbt_v1_compressed::{
@@ -140,6 +142,66 @@ fn bench_transport(c: &mut Criterion) {
     for &rows in &[2_000usize, 100_000usize] {
         let batch = make_bars_like_batch(rows);
 
+        let mut view_cols: Vec<ColumnDataView<'_>> = Vec::with_capacity(batch.columns.len());
+        for col in batch.columns.iter() {
+            match col {
+                ColumnData::Var {
+                    ty,
+                    validity,
+                    offsets,
+                    data,
+                } => view_cols.push(ColumnDataView::Var {
+                    ty: *ty,
+                    validity: validity.as_bytes(),
+                    offsets: offsets.as_slice(),
+                    data: VarDataView::Contiguous(data.as_slice()),
+                }),
+                ColumnData::FixedI64 { validity, values } => view_cols.push(ColumnDataView::FixedI64 {
+                    validity: validity.as_bytes(),
+                    values: values.as_slice(),
+                }),
+                ColumnData::FixedF64Bits { validity, values } => {
+                    view_cols.push(ColumnDataView::FixedF64Bits {
+                        validity: validity.as_bytes(),
+                        values: values.as_slice(),
+                    })
+                }
+                ColumnData::FixedBool { validity, values } => view_cols.push(ColumnDataView::FixedBool {
+                    validity: validity.as_bytes(),
+                    values: values.as_slice(),
+                }),
+                ColumnData::FixedI16 { validity, values } => view_cols.push(ColumnDataView::FixedI16 {
+                    validity: validity.as_bytes(),
+                    values: values.as_slice(),
+                }),
+                ColumnData::FixedI32 { validity, values } => view_cols.push(ColumnDataView::FixedI32 {
+                    validity: validity.as_bytes(),
+                    values: values.as_slice(),
+                }),
+                ColumnData::FixedF32Bits { validity, values } => {
+                    view_cols.push(ColumnDataView::FixedF32Bits {
+                        validity: validity.as_bytes(),
+                        values: values.as_slice(),
+                    })
+                }
+                ColumnData::FixedUuid { validity, values } => view_cols.push(ColumnDataView::FixedUuid {
+                    validity: validity.as_bytes(),
+                    values: values.as_slice(),
+                }),
+                ColumnData::FixedTimestampMicros { validity, values } => {
+                    view_cols.push(ColumnDataView::FixedTimestampMicros {
+                        validity: validity.as_bytes(),
+                        values: values.as_slice(),
+                    })
+                }
+            }
+        }
+        let view = ColumnarBatchView {
+            schema: &batch.schema,
+            row_count: batch.row_count,
+            columns: view_cols.as_slice(),
+        };
+
         let mut enc_ws_plain = MathldbtV1EncodeWorkspace::default();
         let mut enc_ws_opt = MathldbtV1EncodeWorkspace::default();
         enc_ws_opt
@@ -164,6 +226,20 @@ fn bench_transport(c: &mut Criterion) {
         });
 
         group.bench_with_input(
+            BenchmarkId::new("encode_fast_path_plain_ws", rows),
+            &rows,
+            |b, _| {
+                let mut out = Vec::new();
+                let mut ws = MathldbtV1EncodeWorkspace::default();
+                b.iter(|| {
+                    encode_mathldbt_v1_fast_path_into_with_workspace(black_box(&view), &mut out, &mut ws)
+                        .unwrap();
+                    black_box(out.len());
+                })
+            },
+        );
+
+        group.bench_with_input(
             BenchmarkId::new("encode_dict_delta_ws", rows),
             &rows,
             |b, _| {
@@ -173,6 +249,22 @@ fn bench_transport(c: &mut Criterion) {
                     .set_enable_delta_varint_i64(true);
                 b.iter(|| {
                     encode_mathldbt_v1_into_with_workspace(black_box(&batch), &mut out, &mut ws)
+                        .unwrap();
+                    black_box(out.len());
+                })
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("encode_fast_path_dict_delta_ws", rows),
+            &rows,
+            |b, _| {
+                let mut out = Vec::new();
+                let mut ws = MathldbtV1EncodeWorkspace::default();
+                ws.set_enable_dict_utf8(true)
+                    .set_enable_delta_varint_i64(true);
+                b.iter(|| {
+                    encode_mathldbt_v1_fast_path_into_with_workspace(black_box(&view), &mut out, &mut ws)
                         .unwrap();
                     black_box(out.len());
                 })
