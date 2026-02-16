@@ -134,7 +134,7 @@ fn compress_zstd_into(
     out: &mut Vec<u8>,
     plain: &[u8],
     level: i32,
-    ws: &mut MathldbtV1CompressedEncodeWorkspace,
+    zstd_ctx: &mut ZstdBulkEncodeCtx,
 ) -> Result<()> {
     if !(-7..=22).contains(&level) {
         return Err(Error::Other("invalid zstd level".to_string()));
@@ -144,14 +144,14 @@ fn compress_zstd_into(
     out.try_reserve(bound)
         .map_err(|e| Error::Other(e.to_string()))?;
 
-    let level_changed = ws.zstd.level != Some(level);
-    if ws.zstd.compressor.is_none() {
-        ws.zstd.compressor = Some(
+    let level_changed = zstd_ctx.level != Some(level);
+    if zstd_ctx.compressor.is_none() {
+        zstd_ctx.compressor = Some(
             zstd::bulk::Compressor::new(level).map_err(|e| Error::Other(e.to_string()))?,
         );
-        ws.zstd.level = Some(level);
+        zstd_ctx.level = Some(level);
     } else if level_changed {
-        let mut compressor = match ws.zstd.compressor.take() {
+        let mut compressor = match zstd_ctx.compressor.take() {
             Some(c) => c,
             None => {
                 return Err(Error::Other(
@@ -162,11 +162,11 @@ fn compress_zstd_into(
         compressor
             .set_compression_level(level)
             .map_err(|e| Error::Other(e.to_string()))?;
-        ws.zstd.compressor = Some(compressor);
-        ws.zstd.level = Some(level);
+        zstd_ctx.compressor = Some(compressor);
+        zstd_ctx.level = Some(level);
     }
 
-    let compressor = match ws.zstd.compressor.as_mut() {
+    let compressor = match zstd_ctx.compressor.as_mut() {
         Some(c) => c,
         None => {
             return Err(Error::Other(
@@ -185,7 +185,6 @@ fn compress_zstd_into(
     _out: &mut Vec<u8>,
     _plain: &[u8],
     _level: i32,
-    _ws: &mut MathldbtV1CompressedEncodeWorkspace,
 ) -> Result<()> {
     Err(Error::Other(
         "zstd compression feature not enabled".to_string(),
@@ -250,7 +249,7 @@ fn decompress_zstd_into(
     bytes: &[u8],
     max_uncompressed_len: usize,
     out: &mut Vec<u8>,
-    ws: &mut MathldbtV1CompressedDecodeWorkspace,
+    zstd_ctx: &mut ZstdBulkDecodeCtx,
 ) -> Result<()> {
     let size_u64 = match zstd::zstd_safe::get_frame_content_size(bytes) {
         Ok(Some(v)) => Some(v),
@@ -272,11 +271,11 @@ fn decompress_zstd_into(
         out.try_reserve(size_usize)
             .map_err(|e| Error::Other(e.to_string()))?;
 
-        if ws.zstd.decompressor.is_none() {
-            ws.zstd.decompressor =
+        if zstd_ctx.decompressor.is_none() {
+            zstd_ctx.decompressor =
                 Some(zstd::bulk::Decompressor::new().map_err(|e| Error::Other(e.to_string()))?);
         }
-        let decompressor = match ws.zstd.decompressor.as_mut() {
+        let decompressor = match zstd_ctx.decompressor.as_mut() {
             Some(d) => d,
             None => {
                 return Err(Error::Other(
@@ -305,7 +304,6 @@ fn decompress_zstd_into(
     _bytes: &[u8],
     _max_uncompressed_len: usize,
     _out: &mut Vec<u8>,
-    _ws: &mut MathldbtV1CompressedDecodeWorkspace,
 ) -> Result<()> {
     Err(Error::Other(
         "zstd compression feature not enabled".to_string(),
@@ -358,7 +356,17 @@ pub fn encode_mathldbt_v1_compressed_into_with_workspace(
             compress_none_into(out, ws.plain.as_slice());
             Ok(())
         }
-        Compression::Zstd { level } => compress_zstd_into(out, ws.plain.as_slice(), level, ws),
+        Compression::Zstd { level } => {
+            let plain = ws.plain.as_slice();
+            #[cfg(feature = "compression-zstd")]
+            {
+                compress_zstd_into(out, plain, level, &mut ws.zstd)
+            }
+            #[cfg(not(feature = "compression-zstd"))]
+            {
+                compress_zstd_into(out, plain, level)
+            }
+        }
         Compression::Gzip { level } => compress_gzip_into(out, ws.plain.as_slice(), level),
     }
 }
@@ -395,7 +403,14 @@ pub fn decode_mathldbt_v1_compressed_with_workspace(
             "decompressed payload exceeds max_uncompressed_len".to_string(),
         )),
         Compression::Zstd { .. } => {
-            decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain, ws)?;
+            #[cfg(feature = "compression-zstd")]
+            {
+                decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain, &mut ws.zstd)?;
+            }
+            #[cfg(not(feature = "compression-zstd"))]
+            {
+                decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain)?;
+            }
             decode_mathldbt_v1_with_workspace(ws.plain.as_slice(), codec_ws)
         }
         Compression::Gzip { .. } => {
@@ -440,7 +455,14 @@ pub fn decode_mathldbt_v1_compressed_into_with_workspace(
             "decompressed payload exceeds max_uncompressed_len".to_string(),
         )),
         Compression::Zstd { .. } => {
-            decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain, ws)?;
+            #[cfg(feature = "compression-zstd")]
+            {
+                decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain, &mut ws.zstd)?;
+            }
+            #[cfg(not(feature = "compression-zstd"))]
+            {
+                decompress_zstd_into(bytes, max_uncompressed_len, &mut ws.plain)?;
+            }
             decode_mathldbt_v1_into_with_workspace(ws.plain.as_slice(), out, codec_ws)
         }
         Compression::Gzip { .. } => {
