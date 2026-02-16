@@ -488,3 +488,40 @@ Notes:
 Note (formatting correction):
 
 - The first Notes bullet above contains a stray literal `\\n` sequence; interpret it as a newline separating two bullets.
+
+---
+
+## 2026-02-16 — `mathldbt_transport` (criterion; fast-path encode vs owned encode)
+
+Date (UTC): 2026-02-16T08:42:54Z  
+Operator: codex-cli
+
+Machine:
+
+- CPU: Intel(R) Xeon(R) W-2295 CPU @ 3.00GHz
+- OS: Linux 5.15.0-156-generic x86_64
+- Rust: rustc 1.90.0, cargo 1.90.0
+
+Command(s):
+
+- `CARGO_TARGET_DIR=/media/Development/tmp/cargo-target cargo bench --bench mathldbt_transport --features "compression-zstd compression-gzip"`
+
+Notes:
+
+- “Owned encode” is `encode_mathldbt_v1_into_with_workspace(&ColumnarBatch, ...)`.
+- “Fast-path encode” is `encode_mathldbt_v1_fast_path_into_with_workspace(&ColumnarBatchView, ...)`.
+- This benchmark compares CPU time for encode-only; it does not measure the upstream allocation/conversion work that fast-path is designed to avoid in real callers.
+
+### rows = 2,000
+
+| Variant      | Owned encode (median) | Fast-path encode (median) | Fast-path delta |
+| ------------ | --------------------: | ------------------------: | --------------: |
+| Plain        |             4.518 µs  |                 4.741 µs  |          +4.92% |
+| Dict + Delta |           100.759 µs  |                97.522 µs  |          -3.21% |
+
+### rows = 100,000
+
+| Variant      | Owned encode (median) | Fast-path encode (median) | Fast-path delta |
+| ------------ | --------------------: | ------------------------: | --------------: |
+| Plain        |           533.990 µs  |               559.163 µs  |          +4.71% |
+| Dict + Delta |             5.042 ms  |                 4.981 ms  |          -1.22% |

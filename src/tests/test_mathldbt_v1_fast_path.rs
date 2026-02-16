@@ -77,7 +77,12 @@ fn fast_path_plain_bytes_match_owned_plain() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -132,7 +137,12 @@ fn fast_path_plain_bytes_match_owned_plain_for_chunked_varlen() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -194,7 +204,12 @@ fn fast_path_opt_bytes_match_owned_opt_including_chunked_varlen() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -262,7 +277,12 @@ fn fast_path_is_deterministic_with_workspace_reuse() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -318,7 +338,12 @@ fn fast_path_is_deterministic_with_workspace_reuse() {
 fn fast_path_invalid_validity_len_errors_deterministically() {
     let batch = sample_batch(8);
     let (validity, offsets, data) = match &batch.columns[0] {
-        ColumnData::Var { validity, offsets, data, .. } => (validity, offsets, data),
+        ColumnData::Var {
+            validity,
+            offsets,
+            data,
+            ..
+        } => (validity, offsets, data),
         _ => unreachable!(),
     };
 
@@ -343,7 +368,8 @@ fn fast_path_invalid_validity_len_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
     assert_eq!(err, Error::Other("validity length mismatch".to_string()));
 }
 
@@ -351,7 +377,12 @@ fn fast_path_invalid_validity_len_errors_deterministically() {
 fn fast_path_invalid_offsets_len_errors_deterministically() {
     let batch = sample_batch(8);
     let (validity, offsets, data) = match &batch.columns[0] {
-        ColumnData::Var { validity, offsets, data, .. } => (validity, offsets, data),
+        ColumnData::Var {
+            validity,
+            offsets,
+            data,
+            ..
+        } => (validity, offsets, data),
         _ => unreachable!(),
     };
 
@@ -376,7 +407,8 @@ fn fast_path_invalid_offsets_len_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
     assert_eq!(err, Error::Other("offsets length mismatch".to_string()));
 }
 
@@ -384,7 +416,12 @@ fn fast_path_invalid_offsets_len_errors_deterministically() {
 fn fast_path_offsets_first_must_be_zero_errors_deterministically() {
     let batch = sample_batch(8);
     let (validity, offsets, data) = match &batch.columns[0] {
-        ColumnData::Var { validity, offsets, data, .. } => (validity, offsets, data),
+        ColumnData::Var {
+            validity,
+            offsets,
+            data,
+            ..
+        } => (validity, offsets, data),
         _ => unreachable!(),
     };
 
@@ -414,7 +451,8 @@ fn fast_path_offsets_first_must_be_zero_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
     assert_eq!(err, Error::Other("offsets[0] must be 0".to_string()));
 }
 
@@ -422,7 +460,12 @@ fn fast_path_offsets_first_must_be_zero_errors_deterministically() {
 fn fast_path_offsets_non_monotonic_errors_deterministically() {
     let batch = sample_batch(8);
     let (validity, offsets, data) = match &batch.columns[0] {
-        ColumnData::Var { validity, offsets, data, .. } => (validity, offsets, data),
+        ColumnData::Var {
+            validity,
+            offsets,
+            data,
+            ..
+        } => (validity, offsets, data),
         _ => unreachable!(),
     };
 
@@ -452,15 +495,24 @@ fn fast_path_offsets_non_monotonic_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
-    assert_eq!(err, Error::Other("offsets must be non-decreasing".to_string()));
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    assert_eq!(
+        err,
+        Error::Other("offsets must be non-decreasing".to_string())
+    );
 }
 
 #[test]
 fn fast_path_final_offset_mismatch_errors_deterministically() {
     let batch = sample_batch(8);
     let (validity, offsets, data) = match &batch.columns[0] {
-        ColumnData::Var { validity, offsets, data, .. } => (validity, offsets, data),
+        ColumnData::Var {
+            validity,
+            offsets,
+            data,
+            ..
+        } => (validity, offsets, data),
         _ => unreachable!(),
     };
 
@@ -490,7 +542,8 @@ fn fast_path_final_offset_mismatch_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
     assert_eq!(err, Error::Other("final offset mismatch".to_string()));
 }
 
@@ -527,7 +580,8 @@ fn fast_path_chunked_data_len_mismatch_errors_deterministically() {
 
     let mut out = Vec::new();
     let mut ws = MathldbtV1EncodeWorkspace::default();
-    let err = encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
+    let err =
+        encode_mathldbt_v1_fast_path_into_with_workspace(&view, &mut out, &mut ws).unwrap_err();
     assert_eq!(err, Error::Other("final offset mismatch".to_string()));
 }
 
@@ -535,9 +589,9 @@ fn fast_path_chunked_data_len_mismatch_errors_deterministically() {
 #[test]
 fn compressed_fast_path_zstd_bytes_match_owned() {
     use crate::codec::mathldbt_v1_compressed::{
+        Compression, MathldbtV1CompressedEncodeWorkspace,
         encode_mathldbt_v1_compressed_fast_path_into_with_workspace,
-        encode_mathldbt_v1_compressed_into_with_workspace, Compression,
-        MathldbtV1CompressedEncodeWorkspace,
+        encode_mathldbt_v1_compressed_into_with_workspace,
     };
 
     let batch = sample_batch(2_000);
@@ -547,7 +601,12 @@ fn compressed_fast_path_zstd_bytes_match_owned() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -628,8 +687,8 @@ fn compressed_fast_path_zstd_bytes_match_owned() {
 #[test]
 fn compressed_fast_path_zstd_is_deterministic_with_workspace_reuse() {
     use crate::codec::mathldbt_v1_compressed::{
-        encode_mathldbt_v1_compressed_fast_path_into_with_workspace, Compression,
-        MathldbtV1CompressedEncodeWorkspace,
+        Compression, MathldbtV1CompressedEncodeWorkspace,
+        encode_mathldbt_v1_compressed_fast_path_into_with_workspace,
     };
 
     let batch = sample_batch(2_000);
@@ -639,7 +698,12 @@ fn compressed_fast_path_zstd_is_deterministic_with_workspace_reuse() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -713,9 +777,9 @@ fn compressed_fast_path_zstd_is_deterministic_with_workspace_reuse() {
 #[test]
 fn compressed_fast_path_gzip_bytes_match_owned() {
     use crate::codec::mathldbt_v1_compressed::{
+        Compression, MathldbtV1CompressedEncodeWorkspace,
         encode_mathldbt_v1_compressed_fast_path_into_with_workspace,
-        encode_mathldbt_v1_compressed_into_with_workspace, Compression,
-        MathldbtV1CompressedEncodeWorkspace,
+        encode_mathldbt_v1_compressed_into_with_workspace,
     };
 
     let batch = sample_batch(2_000);
@@ -725,7 +789,12 @@ fn compressed_fast_path_gzip_bytes_match_owned() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
@@ -806,8 +875,8 @@ fn compressed_fast_path_gzip_bytes_match_owned() {
 #[test]
 fn compressed_fast_path_gzip_is_deterministic_with_workspace_reuse() {
     use crate::codec::mathldbt_v1_compressed::{
-        encode_mathldbt_v1_compressed_fast_path_into_with_workspace, Compression,
-        MathldbtV1CompressedEncodeWorkspace,
+        Compression, MathldbtV1CompressedEncodeWorkspace,
+        encode_mathldbt_v1_compressed_fast_path_into_with_workspace,
     };
 
     let batch = sample_batch(2_000);
@@ -817,7 +886,12 @@ fn compressed_fast_path_gzip_is_deterministic_with_workspace_reuse() {
             validity,
             offsets,
             data,
-        } => (*ty, validity.as_bytes(), offsets.as_slice(), data.as_slice()),
+        } => (
+            *ty,
+            validity.as_bytes(),
+            offsets.as_slice(),
+            data.as_slice(),
+        ),
         _ => unreachable!(),
     };
     let (v_i64, vals_i64) = match &batch.columns[1] {
