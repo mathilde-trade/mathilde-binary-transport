@@ -1,6 +1,6 @@
 # `mathilde-binary-transport` — Global Inventory (GENERATED; DO NOT EDIT)
 
-Generated: 2026-02-15T17:13:21Z
+Generated: 2026-02-15T17:47:13Z
 Protocol: `docs/inventory_template.md`
 
 This file is generated from per-component inventories under `*/src/docs/inventory.md`

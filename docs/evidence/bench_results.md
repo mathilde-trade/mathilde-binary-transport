@@ -189,21 +189,21 @@ Results (bytes + WAN estimate only):
 
 ### rows = 2,000 (rtt=30ms, bandwidth=100Mbit/s)
 
-| Payload | Compression | Bytes | Estimated t_transfer |
-|---|---:|---:|---:|
-| MATHLDBT | none | 92,263 | 37.381 ms |
-| JSON | none | 254,001 | 50.320 ms |
-| MATHLDBT | zstd (level=3) | 8,120 | 30.650 ms |
-| MATHLDBT | gzip (level=6) | 10,769 | 30.862 ms |
+| Payload  |    Compression |   Bytes | Estimated t_transfer |
+| -------- | -------------: | ------: | -------------------: |
+| MATHLDBT |           none |  92,263 |            37.381 ms |
+| JSON     |           none | 254,001 |            50.320 ms |
+| MATHLDBT | zstd (level=3) |   8,120 |            30.650 ms |
+| MATHLDBT | gzip (level=6) |  10,769 |            30.862 ms |
 
 ### rows = 100,000 (rtt=30ms, bandwidth=100Mbit/s)
 
-| Payload | Compression | Bytes | Estimated t_transfer |
-|---|---:|---:|---:|
-| MATHLDBT | none | 4,600,263 | 398.021 ms |
-| JSON | none | 12,700,001 | 1.046000 s |
-| MATHLDBT | zstd (level=3) | 293,862 | 53.509 ms |
-| MATHLDBT | gzip (level=6) | 457,652 | 66.612 ms |
+| Payload  |    Compression |      Bytes | Estimated t_transfer |
+| -------- | -------------: | ---------: | -------------------: |
+| MATHLDBT |           none |  4,600,263 |           398.021 ms |
+| JSON     |           none | 12,700,001 |           1.046000 s |
+| MATHLDBT | zstd (level=3) |    293,862 |            53.509 ms |
+| MATHLDBT | gzip (level=6) |    457,652 |            66.612 ms |
 
 ---
 
@@ -287,42 +287,98 @@ Notes:
 
 #### rows = 2,000
 
-| Benchmark | Median |
-|---|---:|
-| `encode_plain_ws` | 5.0073 µs |
-| `encode_dict_delta_ws` | 98.677 µs |
-| `decode_plain_ws` | 9.2821 µs |
-| `decode_into_plain_ws` | 8.4636 µs |
-| `decode_dict_delta_ws` | 44.816 µs |
+| Benchmark                   |    Median |
+| --------------------------- | --------: |
+| `encode_plain_ws`           | 5.0073 µs |
+| `encode_dict_delta_ws`      | 98.677 µs |
+| `decode_plain_ws`           | 9.2821 µs |
+| `decode_into_plain_ws`      | 8.4636 µs |
+| `decode_dict_delta_ws`      | 44.816 µs |
 | `decode_into_dict_delta_ws` | 42.881 µs |
 
 #### rows = 100,000
 
-| Benchmark | Median |
-|---|---:|
-| `encode_plain_ws` | 554.60 µs |
-| `encode_dict_delta_ws` | 5.1085 ms |
-| `decode_plain_ws` | 851.11 µs |
-| `decode_into_plain_ws` | 798.08 µs |
-| `decode_dict_delta_ws` | 2.4433 ms |
+| Benchmark                   |    Median |
+| --------------------------- | --------: |
+| `encode_plain_ws`           | 554.60 µs |
+| `encode_dict_delta_ws`      | 5.1085 ms |
+| `decode_plain_ws`           | 851.11 µs |
+| `decode_into_plain_ws`      | 798.08 µs |
+| `decode_dict_delta_ws`      | 2.4433 ms |
 | `decode_into_dict_delta_ws` | 2.4130 ms |
 
 ### `json_vs_mathldbt` (median; lower is better)
 
 #### rows = 2,000
 
-| Benchmark | Median |
-|---|---:|
+| Benchmark            |    Median |
+| -------------------- | --------: |
 | `mathldbt_encode_ws` | 102.31 µs |
 | `mathldbt_decode_ws` | 49.308 µs |
-| `json_serialize` | 530.42 µs |
-| `json_deserialize` | 827.92 µs |
+| `json_serialize`     | 530.42 µs |
+| `json_deserialize`   | 827.92 µs |
 
 #### rows = 100,000
 
-| Benchmark | Median |
-|---|---:|
+| Benchmark            |    Median |
+| -------------------- | --------: |
 | `mathldbt_encode_ws` | 5.2750 ms |
 | `mathldbt_decode_ws` | 2.6227 ms |
-| `json_serialize` | 26.241 ms |
-| `json_deserialize` | 41.411 ms |
+| `json_serialize`     | 26.241 ms |
+| `json_deserialize`   | 41.411 ms |
+
+---
+
+## 2026-02-15 — `mathldbt_transport` (+ zstd/gzip, criterion, local; post-parity)
+
+Date (UTC): 2026-02-15T18:45:00Z  
+Operator: codex-cli
+
+Machine:
+
+- CPU: Intel(R) Xeon(R) W-2295 CPU @ 3.00GHz (18c/36t)
+- OS: Linux 5.15.0-156-generic x86_64 GNU/Linux
+- Rust: rustc 1.90.0, cargo 1.90.0
+
+Command(s):
+
+- `cargo bench --bench mathldbt_transport --features "compression-zstd compression-gzip"`
+
+Profile:
+
+- release (cargo bench; criterion)
+
+Notes:
+
+- This run includes the compression helpers and therefore measures: `encode_v1` + compress, and decompress + `decode_v1`.
+- `gnuplot` not found; criterion used plotters backend (this does not affect measured timings).
+
+### rows = 2,000 (median; lower is better)
+
+| Benchmark | Median |
+|---|---:|
+| `encode_plain_ws` | 4.596 µs |
+| `encode_dict_delta_ws` | 99.222 µs |
+| `decode_plain_ws` | 8.927 µs |
+| `decode_into_plain_ws` | 8.066 µs |
+| `decode_dict_delta_ws` | 46.202 µs |
+| `decode_into_dict_delta_ws` | 43.933 µs |
+| `encode_zstd_ws` (level=3) | 332.401 µs |
+| `decode_zstd_ws` (level=3) | 148.749 µs |
+| `encode_gzip_ws` (level=6) | 3.075 ms |
+| `decode_gzip_ws` (level=6) | 185.618 µs |
+
+### rows = 100,000 (median; lower is better)
+
+| Benchmark | Median |
+|---|---:|
+| `encode_plain_ws` | 537.506 µs |
+| `encode_dict_delta_ws` | 5.155 ms |
+| `decode_plain_ws` | 855.788 µs |
+| `decode_into_plain_ws` | 763.867 µs |
+| `decode_dict_delta_ws` | 2.481 ms |
+| `decode_into_dict_delta_ws` | 2.427 ms |
+| `encode_zstd_ws` (level=3) | 17.492 ms |
+| `decode_zstd_ws` (level=3) | 7.747 ms |
+| `encode_gzip_ws` (level=6) | 181.339 ms |
+| `decode_gzip_ws` (level=6) | 9.625 ms |
