@@ -1,5 +1,6 @@
 mod test_batch;
 mod test_mathldbt_v1;
+mod test_mathldbt_v1_fast_path;
 mod test_mathldbt_v1_decode_into_equivalence;
 mod test_mathldbt_v1_decode_into_reuse_smoke;
 mod test_mathldbt_v1_adversarial;

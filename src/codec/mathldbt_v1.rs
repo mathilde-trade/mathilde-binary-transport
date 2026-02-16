@@ -1,4 +1,5 @@
 use crate::batch::{ColumnData, ColumnarBatch, ValidityBitmap};
+use crate::batch_view::{ColumnarBatchView, ColumnDataView, VarDataView};
 use crate::schema::{ColumnarField, ColumnarSchema, ColumnarType};
 use crate::{Error, Result};
 use std::collections::HashMap;
@@ -111,6 +112,8 @@ pub struct MathldbtV1EncodeWorkspace {
     dict_indices_bytes: Vec<u8>,
     dict_offsets: Vec<u32>,
     dict_blob: Vec<u8>,
+
+    view_var_coalesce: Vec<u8>,
 
     delta_buf: Vec<u8>,
 }
@@ -545,6 +548,447 @@ fn decode_delta_varint_i64_from_payload(
 pub fn encode_mathldbt_v1_into(batch: &ColumnarBatch, out: &mut Vec<u8>) -> Result<()> {
     let mut ws = MathldbtV1EncodeWorkspace::default();
     encode_mathldbt_v1_into_with_workspace(batch, out, &mut ws)
+}
+
+pub fn encode_mathldbt_v1_fast_path_into(view: &ColumnarBatchView<'_>, out: &mut Vec<u8>) -> Result<()> {
+    let mut ws = MathldbtV1EncodeWorkspace::default();
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, out, &mut ws)
+}
+
+pub fn encode_mathldbt_v1_fast_path_into_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    ws: &mut MathldbtV1EncodeWorkspace,
+) -> Result<()> {
+    view.validate()?;
+    out.clear();
+
+    out.extend_from_slice(MAGIC);
+    write_u16_le(out, VERSION);
+    write_u16_le(out, 0); // flags
+
+    let row_count_u32: u32 = view
+        .row_count
+        .try_into()
+        .map_err(|_| Error::Other("row_count too large".to_string()))?;
+    write_u32_le(out, row_count_u32);
+
+    let col_count_u16: u16 = view
+        .columns
+        .len()
+        .try_into()
+        .map_err(|_| Error::Other("col_count too large".to_string()))?;
+    if col_count_u16 == 0 {
+        return Err(Error::Other(
+            "MATHLDBT must have at least one column".to_string(),
+        ));
+    }
+    write_u16_le(out, col_count_u16);
+
+    write_u16_le(out, 0); // schema_id_len (v1: none)
+
+    let expected_validity = ceil_div_8(view.row_count)?;
+
+    for (field, col) in view.schema.fields().iter().zip(view.columns.iter()) {
+        write_u16_le(out, type_id(field.ty));
+
+        let name_bytes = field.name.as_deref().unwrap_or("").as_bytes();
+
+        let validity: &[u8] = match col {
+            ColumnDataView::FixedBool { validity, .. } => validity,
+            ColumnDataView::FixedI16 { validity, .. } => validity,
+            ColumnDataView::FixedI32 { validity, .. } => validity,
+            ColumnDataView::FixedI64 { validity, .. } => validity,
+            ColumnDataView::FixedF32Bits { validity, .. } => validity,
+            ColumnDataView::FixedF64Bits { validity, .. } => validity,
+            ColumnDataView::FixedUuid { validity, .. } => validity,
+            ColumnDataView::FixedTimestampMicros { validity, .. } => validity,
+            ColumnDataView::Var { validity, .. } => validity,
+        };
+        if validity.len() != expected_validity {
+            return Err(Error::Other("validity length mismatch".to_string()));
+        }
+
+        let mut dict_payload: Option<(&[u8], &[u8])> = None;
+        let mut delta_payload: Option<&[u8]> = None;
+        let mut view_var_coalesce_to_restore: Option<Vec<u8>> = None;
+
+        let encoding_id: u16 = match col {
+            ColumnDataView::Var {
+                offsets, data, ty, ..
+            } if ws.enable_dict_utf8 && matches!(ty, ColumnarType::Utf8 | ColumnarType::JsonbText) =>
+            {
+                let maybe = match data {
+                    VarDataView::Contiguous(bytes) => build_dict_utf8_payload(
+                        ws,
+                        validity,
+                        view.row_count,
+                        offsets,
+                        bytes,
+                    )?,
+                    VarDataView::Chunks { inline, chunks } => {
+                        let mut coalesced = std::mem::take(&mut ws.view_var_coalesce);
+                        coalesced.clear();
+                        let expected_len = offsets.last().copied().unwrap_or(0) as usize;
+                        coalesced.reserve(expected_len);
+                        coalesced.extend_from_slice(inline);
+                        for &c in *chunks {
+                            coalesced.extend_from_slice(c);
+                        }
+                        match build_dict_utf8_payload(
+                            ws,
+                            validity,
+                            view.row_count,
+                            offsets,
+                            coalesced.as_slice(),
+                        ) {
+                            Ok(v) => {
+                                view_var_coalesce_to_restore = Some(coalesced);
+                                v
+                            }
+                            Err(e) => {
+                                ws.view_var_coalesce = coalesced;
+                                return Err(e);
+                            }
+                        }
+                    }
+                };
+                if let Some((idx_bytes, dict_blob)) = maybe {
+                    dict_payload = Some((idx_bytes, dict_blob));
+                    ENC_DICT_UTF8
+                } else {
+                    ENC_PLAIN
+                }
+            }
+            ColumnDataView::FixedI64 { values, .. }
+                if ws.enable_delta_varint_i64
+                    && field.ty == ColumnarType::I64
+                    && validity_all_valid(validity, view.row_count) =>
+            {
+                if let Some(payload) = build_delta_varint_i64_payload(ws, values)? {
+                    delta_payload = Some(payload);
+                    ENC_DELTA_VARINT_I64
+                } else {
+                    ENC_PLAIN
+                }
+            }
+            ColumnDataView::FixedTimestampMicros { values, .. }
+                if ws.enable_delta_varint_i64
+                    && field.ty == ColumnarType::TimestampTzMicros
+                    && validity_all_valid(validity, view.row_count) =>
+            {
+                if let Some(payload) = build_delta_varint_i64_payload(ws, values)? {
+                    delta_payload = Some(payload);
+                    ENC_DELTA_VARINT_I64
+                } else {
+                    ENC_PLAIN
+                }
+            }
+            ColumnDataView::Var { .. } => ENC_PLAIN,
+            _ => FixedEncodingId::PlainLe as u16,
+        };
+
+        write_u16_le(out, encoding_id);
+        write_u16_le(out, 0); // col_flags
+        write_u16_len_bytes(out, name_bytes)?;
+        write_u32_len_bytes(out, validity)?;
+
+        match col {
+            ColumnDataView::FixedBool { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                write_u32_len_bytes(out, values)?;
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedI16 { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                let byte_len = checked_byte_len(view.row_count, 2, "values overflow")?;
+                write_u32_le(
+                    out,
+                    byte_len
+                        .try_into()
+                        .map_err(|_| Error::Other("payload too large".to_string()))?,
+                );
+                out.reserve(byte_len);
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes =
+                        unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in *values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedI32 { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                let byte_len = checked_byte_len(view.row_count, 4, "values overflow")?;
+                write_u32_le(
+                    out,
+                    byte_len
+                        .try_into()
+                        .map_err(|_| Error::Other("payload too large".to_string()))?,
+                );
+                out.reserve(byte_len);
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes =
+                        unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in *values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedI64 { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                if encoding_id == ENC_DELTA_VARINT_I64 {
+                    let payload =
+                        delta_payload.ok_or_else(|| Error::Other("missing delta payload".to_string()))?;
+                    write_u32_len_bytes(out, payload)?;
+                    write_u32_le(out, 0);
+                } else {
+                    let byte_len = checked_byte_len(view.row_count, 8, "values overflow")?;
+                    write_u32_le(
+                        out,
+                        byte_len
+                            .try_into()
+                            .map_err(|_| Error::Other("payload too large".to_string()))?,
+                    );
+                    out.reserve(byte_len);
+                    #[cfg(target_endian = "little")]
+                    {
+                        let values_bytes = unsafe {
+                            std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                        };
+                        out.extend_from_slice(values_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &v in *values {
+                            out.extend_from_slice(&v.to_le_bytes());
+                        }
+                    }
+                    write_u32_le(out, 0);
+                }
+            }
+            ColumnDataView::FixedF32Bits { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                let byte_len = checked_byte_len(view.row_count, 4, "values overflow")?;
+                write_u32_le(
+                    out,
+                    byte_len
+                        .try_into()
+                        .map_err(|_| Error::Other("payload too large".to_string()))?,
+                );
+                out.reserve(byte_len);
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes =
+                        unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in *values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedF64Bits { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                let byte_len = checked_byte_len(view.row_count, 8, "values overflow")?;
+                write_u32_le(
+                    out,
+                    byte_len
+                        .try_into()
+                        .map_err(|_| Error::Other("payload too large".to_string()))?,
+                );
+                out.reserve(byte_len);
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes =
+                        unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in *values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
+                }
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedUuid { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                let byte_len = checked_byte_len(view.row_count, 16, "values overflow")?;
+                write_u32_le(
+                    out,
+                    byte_len
+                        .try_into()
+                        .map_err(|_| Error::Other("payload too large".to_string()))?,
+                );
+                out.reserve(byte_len);
+                let values_bytes =
+                    unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                out.extend_from_slice(values_bytes);
+                write_u32_le(out, 0);
+            }
+            ColumnDataView::FixedTimestampMicros { values, .. } => {
+                if values.len() != view.row_count {
+                    return Err(Error::Other("values length mismatch".to_string()));
+                }
+                if encoding_id == ENC_DELTA_VARINT_I64 {
+                    let payload =
+                        delta_payload.ok_or_else(|| Error::Other("missing delta payload".to_string()))?;
+                    write_u32_len_bytes(out, payload)?;
+                    write_u32_le(out, 0);
+                } else {
+                    let byte_len = checked_byte_len(view.row_count, 8, "values overflow")?;
+                    write_u32_le(
+                        out,
+                        byte_len
+                            .try_into()
+                            .map_err(|_| Error::Other("payload too large".to_string()))?,
+                    );
+                    out.reserve(byte_len);
+                    #[cfg(target_endian = "little")]
+                    {
+                        let values_bytes = unsafe {
+                            std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                        };
+                        out.extend_from_slice(values_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &v in *values {
+                            out.extend_from_slice(&v.to_le_bytes());
+                        }
+                    }
+                    write_u32_le(out, 0);
+                }
+            }
+            ColumnDataView::Var {
+                ty, offsets, data, ..
+            } => match encoding_id {
+                ENC_PLAIN => {
+                    if *ty != field.ty {
+                        return Err(Error::Other("internal type mismatch".to_string()));
+                    }
+                    if offsets.len()
+                        != view
+                            .row_count
+                            .checked_add(1)
+                            .ok_or_else(|| Error::Other("row_count too large".to_string()))?
+                    {
+                        return Err(Error::Other("offsets length mismatch".to_string()));
+                    }
+                    let offsets_bytes_len =
+                        checked_byte_len(view.row_count + 1, 4, "offsets overflow")?;
+                    write_u32_le(
+                        out,
+                        offsets_bytes_len
+                            .try_into()
+                            .map_err(|_| Error::Other("payload too large".to_string()))?,
+                    );
+                    out.reserve(offsets_bytes_len);
+                    #[cfg(target_endian = "little")]
+                    {
+                        let offsets_bytes = unsafe {
+                            std::slice::from_raw_parts(offsets.as_ptr() as *const u8, offsets_bytes_len)
+                        };
+                        out.extend_from_slice(offsets_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &o in *offsets {
+                            out.extend_from_slice(&o.to_le_bytes());
+                        }
+                    }
+
+                    match data {
+                        VarDataView::Contiguous(bytes) => {
+                            write_u32_len_bytes(out, bytes)?;
+                        }
+                        VarDataView::Chunks { inline, chunks } => {
+                            let data_len = data.len()?;
+                            let data_len_u32: u32 = data_len
+                                .try_into()
+                                .map_err(|_| Error::Other("payload too large".to_string()))?;
+                            write_u32_le(out, data_len_u32);
+                            out.reserve(data_len);
+                            out.extend_from_slice(inline);
+                            for &c in *chunks {
+                                out.extend_from_slice(c);
+                            }
+                        }
+                    }
+                }
+                ENC_DICT_UTF8 => {
+                    if *ty != field.ty {
+                        return Err(Error::Other("internal type mismatch".to_string()));
+                    }
+                    let (idx_bytes, dict_blob) = dict_payload
+                        .ok_or_else(|| Error::Other("missing dict payload".to_string()))?;
+                    write_u32_len_bytes(out, idx_bytes)?;
+                    write_u32_len_bytes(out, dict_blob)?;
+                }
+                _ => {
+                    return Err(Error::Other(
+                        "invalid encoding for varlen column".to_string(),
+                    ));
+                }
+            },
+        }
+
+        if let Some(coalesced) = view_var_coalesce_to_restore {
+            ws.view_var_coalesce = coalesced;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn encode_mathldbt_v1_fast_path_into_opt(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+) -> Result<()> {
+    let mut ws = MathldbtV1EncodeWorkspace::default();
+    ws.set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, out, &mut ws)
+}
+
+pub fn encode_mathldbt_v1_fast_path_into_opt_with_workspace(
+    view: &ColumnarBatchView<'_>,
+    out: &mut Vec<u8>,
+    ws: &mut MathldbtV1EncodeWorkspace,
+) -> Result<()> {
+    ws.set_enable_dict_utf8(true)
+        .set_enable_delta_varint_i64(true);
+    encode_mathldbt_v1_fast_path_into_with_workspace(view, out, ws)
 }
 
 pub fn encode_mathldbt_v1_into_with_workspace(
