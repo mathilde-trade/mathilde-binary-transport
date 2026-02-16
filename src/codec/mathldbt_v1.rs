@@ -410,14 +410,28 @@ fn decode_dict_utf8_to_var_col(
 
     ws.dict_offsets.clear();
     ws.dict_offsets.resize(dict_count + 1, 0u32);
-    for i in 0..(dict_count + 1) {
-        let j = offsets_start + i * 4;
-        ws.dict_offsets[i] = u32::from_le_bytes([
-            dict_blob[j],
-            dict_blob[j + 1],
-            dict_blob[j + 2],
-            dict_blob[j + 3],
-        ]);
+    #[cfg(target_endian = "little")]
+    {
+        let src = &dict_blob[offsets_start..offsets_end];
+        let dst = unsafe {
+            std::slice::from_raw_parts_mut(
+                ws.dict_offsets.as_mut_ptr() as *mut u8,
+                offsets_bytes_len,
+            )
+        };
+        dst.copy_from_slice(src);
+    }
+    #[cfg(not(target_endian = "little"))]
+    {
+        for i in 0..(dict_count + 1) {
+            let j = offsets_start + i * 4;
+            ws.dict_offsets[i] = u32::from_le_bytes([
+                dict_blob[j],
+                dict_blob[j + 1],
+                dict_blob[j + 2],
+                dict_blob[j + 3],
+            ]);
+        }
     }
 
     let dict_bytes = &dict_blob[offsets_end..];
@@ -662,8 +676,18 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                         .map_err(|_| Error::Other("payload too large".to_string()))?,
                 );
                 out.reserve(byte_len);
-                for &v in values {
-                    out.extend_from_slice(&v.to_le_bytes());
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes = unsafe {
+                        std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                    };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
                 }
                 write_u32_le(out, 0);
             }
@@ -679,8 +703,18 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                         .map_err(|_| Error::Other("payload too large".to_string()))?,
                 );
                 out.reserve(byte_len);
-                for &v in values {
-                    out.extend_from_slice(&v.to_le_bytes());
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes = unsafe {
+                        std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                    };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
                 }
                 write_u32_le(out, 0);
             }
@@ -702,8 +736,18 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                             .map_err(|_| Error::Other("payload too large".to_string()))?,
                     );
                     out.reserve(byte_len);
-                    for &v in values {
-                        out.extend_from_slice(&v.to_le_bytes());
+                    #[cfg(target_endian = "little")]
+                    {
+                        let values_bytes = unsafe {
+                            std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                        };
+                        out.extend_from_slice(values_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &v in values {
+                            out.extend_from_slice(&v.to_le_bytes());
+                        }
                     }
                     write_u32_le(out, 0);
                 }
@@ -718,10 +762,20 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                     byte_len
                         .try_into()
                         .map_err(|_| Error::Other("payload too large".to_string()))?,
-                );
+                    );
                 out.reserve(byte_len);
-                for &v in values {
-                    out.extend_from_slice(&v.to_le_bytes());
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes = unsafe {
+                        std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                    };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
                 }
                 write_u32_le(out, 0);
             }
@@ -737,8 +791,18 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                         .map_err(|_| Error::Other("payload too large".to_string()))?,
                 );
                 out.reserve(byte_len);
-                for &v in values {
-                    out.extend_from_slice(&v.to_le_bytes());
+                #[cfg(target_endian = "little")]
+                {
+                    let values_bytes = unsafe {
+                        std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                    };
+                    out.extend_from_slice(values_bytes);
+                }
+                #[cfg(not(target_endian = "little"))]
+                {
+                    for &v in values {
+                        out.extend_from_slice(&v.to_le_bytes());
+                    }
                 }
                 write_u32_le(out, 0);
             }
@@ -752,11 +816,11 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                     byte_len
                         .try_into()
                         .map_err(|_| Error::Other("payload too large".to_string()))?,
-                );
+                    );
                 out.reserve(byte_len);
-                for v in values {
-                    out.extend_from_slice(v);
-                }
+                let values_bytes =
+                    unsafe { std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len) };
+                out.extend_from_slice(values_bytes);
                 write_u32_le(out, 0);
             }
             ColumnData::FixedTimestampMicros { values, .. } => {
@@ -777,8 +841,18 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                             .map_err(|_| Error::Other("payload too large".to_string()))?,
                     );
                     out.reserve(byte_len);
-                    for &v in values {
-                        out.extend_from_slice(&v.to_le_bytes());
+                    #[cfg(target_endian = "little")]
+                    {
+                        let values_bytes = unsafe {
+                            std::slice::from_raw_parts(values.as_ptr() as *const u8, byte_len)
+                        };
+                        out.extend_from_slice(values_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &v in values {
+                            out.extend_from_slice(&v.to_le_bytes());
+                        }
                     }
                     write_u32_le(out, 0);
                 }
@@ -807,8 +881,21 @@ pub fn encode_mathldbt_v1_into_with_workspace(
                             .map_err(|_| Error::Other("payload too large".to_string()))?,
                     );
                     out.reserve(offsets_bytes_len);
-                    for &o in offsets {
-                        out.extend_from_slice(&o.to_le_bytes());
+                    #[cfg(target_endian = "little")]
+                    {
+                        let offsets_bytes = unsafe {
+                            std::slice::from_raw_parts(
+                                offsets.as_ptr() as *const u8,
+                                offsets_bytes_len,
+                            )
+                        };
+                        out.extend_from_slice(offsets_bytes);
+                    }
+                    #[cfg(not(target_endian = "little"))]
+                    {
+                        for &o in offsets {
+                            out.extend_from_slice(&o.to_le_bytes());
+                        }
                     }
                     write_u32_len_bytes(out, data.as_slice())?;
                 }
@@ -935,15 +1022,29 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != expected_offsets_len {
                             return Err(Error::Other("offsets length mismatch".to_string()));
                         }
-                        let mut offsets: Vec<u32> = Vec::with_capacity(row_count + 1);
-                        for i in 0..(row_count + 1) {
-                            let j = i * 4;
-                            offsets.push(u32::from_le_bytes([
-                                payload1[j],
-                                payload1[j + 1],
-                                payload1[j + 2],
-                                payload1[j + 3],
-                            ]));
+                        let mut offsets: Vec<u32> = Vec::new();
+                        offsets.resize(row_count + 1, 0u32);
+                        #[cfg(target_endian = "little")]
+                        {
+                            let dst = unsafe {
+                                std::slice::from_raw_parts_mut(
+                                    offsets.as_mut_ptr() as *mut u8,
+                                    expected_offsets_len,
+                                )
+                            };
+                            dst.copy_from_slice(payload1);
+                        }
+                        #[cfg(not(target_endian = "little"))]
+                        {
+                            for i in 0..(row_count + 1) {
+                                let j = i * 4;
+                                offsets[i] = u32::from_le_bytes([
+                                    payload1[j],
+                                    payload1[j + 1],
+                                    payload1[j + 2],
+                                    payload1[j + 3],
+                                ]);
+                            }
                         }
                         let mut prev = 0u32;
                         for &o in &offsets {
@@ -1046,14 +1147,35 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != row_count * 2 {
                             return Err(Error::Other("values length mismatch".to_string()));
                         }
-                        let mut values: Vec<i16> = Vec::with_capacity(row_count);
-                        for i in 0..row_count {
-                            let j = i * 2;
-                            let b = [payload1[j], payload1[j + 1]];
-                            values.push(match enc {
-                                FixedEncodingId::PlainLe => i16::from_le_bytes(b),
-                                FixedEncodingId::PgBeFixed => i16::from_be_bytes(b),
-                            });
+                        let mut values: Vec<i16> = vec![0i16; row_count];
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 2,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 2;
+                                        let b = [payload1[j], payload1[j + 1]];
+                                        values[i] = i16::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 2;
+                                    let b = [payload1[j], payload1[j + 1]];
+                                    values[i] = i16::from_be_bytes(b);
+                                }
+                            }
                         }
                         columns.push(ColumnData::FixedI16 { validity, values });
                     }
@@ -1061,19 +1183,45 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != row_count * 4 {
                             return Err(Error::Other("values length mismatch".to_string()));
                         }
-                        let mut values: Vec<i32> = Vec::with_capacity(row_count);
-                        for i in 0..row_count {
-                            let j = i * 4;
-                            let b = [
-                                payload1[j],
-                                payload1[j + 1],
-                                payload1[j + 2],
-                                payload1[j + 3],
-                            ];
-                            values.push(match enc {
-                                FixedEncodingId::PlainLe => i32::from_le_bytes(b),
-                                FixedEncodingId::PgBeFixed => i32::from_be_bytes(b),
-                            });
+                        let mut values: Vec<i32> = vec![0i32; row_count];
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 4,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 4;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                        ];
+                                        values[i] = i32::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 4;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                    ];
+                                    values[i] = i32::from_be_bytes(b);
+                                }
+                            }
                         }
                         columns.push(ColumnData::FixedI32 { validity, values });
                     }
@@ -1089,22 +1237,52 @@ pub fn decode_mathldbt_v1_with_workspace(
                             if payload1.len() != row_count * 8 {
                                 return Err(Error::Other("values length mismatch".to_string()));
                             }
-                            for i in 0..row_count {
-                                let j = i * 8;
-                                let b = [
-                                    payload1[j],
-                                    payload1[j + 1],
-                                    payload1[j + 2],
-                                    payload1[j + 3],
-                                    payload1[j + 4],
-                                    payload1[j + 5],
-                                    payload1[j + 6],
-                                    payload1[j + 7],
-                                ];
-                                values[i] = match enc {
-                                    FixedEncodingId::PlainLe => i64::from_le_bytes(b),
-                                    FixedEncodingId::PgBeFixed => i64::from_be_bytes(b),
-                                };
+                            match enc {
+                                FixedEncodingId::PlainLe => {
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let dst = unsafe {
+                                            std::slice::from_raw_parts_mut(
+                                                values.as_mut_ptr() as *mut u8,
+                                                row_count * 8,
+                                            )
+                                        };
+                                        dst.copy_from_slice(payload1);
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        for i in 0..row_count {
+                                            let j = i * 8;
+                                            let b = [
+                                                payload1[j],
+                                                payload1[j + 1],
+                                                payload1[j + 2],
+                                                payload1[j + 3],
+                                                payload1[j + 4],
+                                                payload1[j + 5],
+                                                payload1[j + 6],
+                                                payload1[j + 7],
+                                            ];
+                                            values[i] = i64::from_le_bytes(b);
+                                        }
+                                    }
+                                }
+                                FixedEncodingId::PgBeFixed => {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = i64::from_be_bytes(b);
+                                    }
+                                }
                             }
                         }
                         columns.push(ColumnData::FixedI64 { validity, values });
@@ -1113,19 +1291,45 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != row_count * 4 {
                             return Err(Error::Other("values length mismatch".to_string()));
                         }
-                        let mut values: Vec<u32> = Vec::with_capacity(row_count);
-                        for i in 0..row_count {
-                            let j = i * 4;
-                            let b = [
-                                payload1[j],
-                                payload1[j + 1],
-                                payload1[j + 2],
-                                payload1[j + 3],
-                            ];
-                            values.push(match enc {
-                                FixedEncodingId::PlainLe => u32::from_le_bytes(b),
-                                FixedEncodingId::PgBeFixed => u32::from_be_bytes(b),
-                            });
+                        let mut values: Vec<u32> = vec![0u32; row_count];
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 4,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 4;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                        ];
+                                        values[i] = u32::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 4;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                    ];
+                                    values[i] = u32::from_be_bytes(b);
+                                }
+                            }
                         }
                         columns.push(ColumnData::FixedF32Bits { validity, values });
                     }
@@ -1133,23 +1337,53 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != row_count * 8 {
                             return Err(Error::Other("values length mismatch".to_string()));
                         }
-                        let mut values: Vec<u64> = Vec::with_capacity(row_count);
-                        for i in 0..row_count {
-                            let j = i * 8;
-                            let b = [
-                                payload1[j],
-                                payload1[j + 1],
-                                payload1[j + 2],
-                                payload1[j + 3],
-                                payload1[j + 4],
-                                payload1[j + 5],
-                                payload1[j + 6],
-                                payload1[j + 7],
-                            ];
-                            values.push(match enc {
-                                FixedEncodingId::PlainLe => u64::from_le_bytes(b),
-                                FixedEncodingId::PgBeFixed => u64::from_be_bytes(b),
-                            });
+                        let mut values: Vec<u64> = vec![0u64; row_count];
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 8,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = u64::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 8;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                        payload1[j + 4],
+                                        payload1[j + 5],
+                                        payload1[j + 6],
+                                        payload1[j + 7],
+                                    ];
+                                    values[i] = u64::from_be_bytes(b);
+                                }
+                            }
                         }
                         columns.push(ColumnData::FixedF64Bits { validity, values });
                     }
@@ -1157,28 +1391,14 @@ pub fn decode_mathldbt_v1_with_workspace(
                         if payload1.len() != row_count * 16 {
                             return Err(Error::Other("values length mismatch".to_string()));
                         }
-                        let mut values: Vec<[u8; 16]> = Vec::with_capacity(row_count);
-                        for i in 0..row_count {
-                            let j = i * 16;
-                            values.push([
-                                payload1[j],
-                                payload1[j + 1],
-                                payload1[j + 2],
-                                payload1[j + 3],
-                                payload1[j + 4],
-                                payload1[j + 5],
-                                payload1[j + 6],
-                                payload1[j + 7],
-                                payload1[j + 8],
-                                payload1[j + 9],
-                                payload1[j + 10],
-                                payload1[j + 11],
-                                payload1[j + 12],
-                                payload1[j + 13],
-                                payload1[j + 14],
-                                payload1[j + 15],
-                            ]);
-                        }
+                        let mut values: Vec<[u8; 16]> = vec![[0u8; 16]; row_count];
+                        let dst = unsafe {
+                            std::slice::from_raw_parts_mut(
+                                values.as_mut_ptr() as *mut u8,
+                                row_count * 16,
+                            )
+                        };
+                        dst.copy_from_slice(payload1);
                         columns.push(ColumnData::FixedUuid { validity, values });
                     }
                     ColumnarType::TimestampTzMicros => {
@@ -1193,22 +1413,52 @@ pub fn decode_mathldbt_v1_with_workspace(
                             if payload1.len() != row_count * 8 {
                                 return Err(Error::Other("values length mismatch".to_string()));
                             }
-                            for i in 0..row_count {
-                                let j = i * 8;
-                                let b = [
-                                    payload1[j],
-                                    payload1[j + 1],
-                                    payload1[j + 2],
-                                    payload1[j + 3],
-                                    payload1[j + 4],
-                                    payload1[j + 5],
-                                    payload1[j + 6],
-                                    payload1[j + 7],
-                                ];
-                                values[i] = match enc {
-                                    FixedEncodingId::PlainLe => i64::from_le_bytes(b),
-                                    FixedEncodingId::PgBeFixed => i64::from_be_bytes(b),
-                                };
+                            match enc {
+                                FixedEncodingId::PlainLe => {
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let dst = unsafe {
+                                            std::slice::from_raw_parts_mut(
+                                                values.as_mut_ptr() as *mut u8,
+                                                row_count * 8,
+                                            )
+                                        };
+                                        dst.copy_from_slice(payload1);
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        for i in 0..row_count {
+                                            let j = i * 8;
+                                            let b = [
+                                                payload1[j],
+                                                payload1[j + 1],
+                                                payload1[j + 2],
+                                                payload1[j + 3],
+                                                payload1[j + 4],
+                                                payload1[j + 5],
+                                                payload1[j + 6],
+                                                payload1[j + 7],
+                                            ];
+                                            values[i] = i64::from_le_bytes(b);
+                                        }
+                                    }
+                                }
+                                FixedEncodingId::PgBeFixed => {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = i64::from_be_bytes(b);
+                                    }
+                                }
                             }
                         }
                         columns.push(ColumnData::FixedTimestampMicros { validity, values });
@@ -1235,14 +1485,609 @@ pub fn decode_mathldbt_v1_into_with_workspace(
     out: &mut ColumnarBatch,
     ws: &mut MathldbtV1DecodeWorkspace,
 ) -> Result<()> {
-    let decoded = decode_mathldbt_v1_with_workspace(bytes, ws)?;
-    if decoded.schema != out.schema {
+    let schema_err = || {
+        Error::Other("decode_mathldbt_v1_into requires matching schema".to_string())
+    };
+
+    let mut pos = 0usize;
+
+    fn take<'a>(bytes: &'a [u8], pos: &mut usize, n: usize) -> Result<&'a [u8]> {
+        let end = pos
+            .checked_add(n)
+            .ok_or_else(|| Error::Other("decode overflow".to_string()))?;
+        if end > bytes.len() {
+            return Err(Error::Other("truncated mathldbt".to_string()));
+        }
+        let slice = &bytes[*pos..end];
+        *pos = end;
+        Ok(slice)
+    }
+
+    fn read_u16_le(bytes: &[u8], pos: &mut usize) -> Result<u16> {
+        let b = take(bytes, pos, 2)?;
+        Ok(u16::from_le_bytes([b[0], b[1]]))
+    }
+
+    fn read_u32_le(bytes: &[u8], pos: &mut usize) -> Result<u32> {
+        let b = take(bytes, pos, 4)?;
+        Ok(u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    }
+
+    let magic = take(bytes, &mut pos, 8)?;
+    if magic != MAGIC {
+        return Err(Error::Other("invalid MATHLDBT magic".to_string()));
+    }
+    let version = read_u16_le(bytes, &mut pos)?;
+    if version != VERSION {
+        return Err(Error::Other(format!(
+            "unsupported MATHLDBT version: {version}"
+        )));
+    }
+    let _flags = read_u16_le(bytes, &mut pos)?;
+    let row_count = read_u32_le(bytes, &mut pos)? as usize;
+    let col_count = read_u16_le(bytes, &mut pos)? as usize;
+    if col_count == 0 {
         return Err(Error::Other(
-            "decode_mathldbt_v1_into requires matching schema".to_string(),
+            "MATHLDBT must have at least one column".to_string(),
         ));
     }
-    out.row_count = decoded.row_count;
-    out.columns = decoded.columns;
+
+    let schema_id_len = read_u16_le(bytes, &mut pos)? as usize;
+    if schema_id_len > 0 {
+        let _ = take(bytes, &mut pos, schema_id_len)?;
+    }
+
+    if col_count != out.schema.len() {
+        return Err(schema_err());
+    }
+    if col_count != out.columns.len() {
+        return Err(schema_err());
+    }
+
+    let expected_validity = ceil_div_8(row_count)?;
+    let out_fields = out.schema.fields();
+
+    for col_idx in 0..col_count {
+        let tid = read_u16_le(bytes, &mut pos)?;
+        let ty = type_from_id(tid)?;
+        let encoding_id_u16 = read_u16_le(bytes, &mut pos)?;
+        let _col_flags = read_u16_le(bytes, &mut pos)?;
+
+        let name_len = read_u16_le(bytes, &mut pos)? as usize;
+        let name_bytes = take(bytes, &mut pos, name_len)?;
+        let name = if name_len == 0 {
+            None
+        } else {
+            Some(
+                std::str::from_utf8(name_bytes)
+                    .map_err(|_| Error::Other("invalid UTF-8 column name".to_string()))?,
+            )
+        };
+
+        let out_field = &out_fields[col_idx];
+        if out_field.ty != ty {
+            return Err(schema_err());
+        }
+        if out_field.name.as_deref() != name {
+            return Err(schema_err());
+        }
+
+        let validity_len = read_u32_le(bytes, &mut pos)? as usize;
+        if validity_len != expected_validity {
+            return Err(Error::Other("validity length mismatch".to_string()));
+        }
+        let validity_src = take(bytes, &mut pos, validity_len)?;
+
+        let payload1_len = read_u32_le(bytes, &mut pos)? as usize;
+        let payload1 = take(bytes, &mut pos, payload1_len)?;
+        let payload2_len = read_u32_le(bytes, &mut pos)? as usize;
+        let payload2 = take(bytes, &mut pos, payload2_len)?;
+
+        let out_col = &mut out.columns[col_idx];
+
+        match ty {
+            ColumnarType::Utf8 | ColumnarType::Bytes | ColumnarType::JsonbText => {
+                let (col_ty, validity, offsets, data) = match out_col {
+                    ColumnData::Var {
+                        ty,
+                        validity,
+                        offsets,
+                        data,
+                    } => (*ty, validity, offsets, data),
+                    _ => return Err(schema_err()),
+                };
+                if col_ty != ty {
+                    return Err(schema_err());
+                }
+                validity.bytes.clear();
+                validity.bytes.extend_from_slice(validity_src);
+
+                match encoding_id_u16 {
+                    ENC_PLAIN => {
+                        let expected_offsets_len = (row_count + 1)
+                            .checked_mul(4)
+                            .ok_or_else(|| Error::Other("offsets overflow".to_string()))?;
+                        if payload1.len() != expected_offsets_len {
+                            return Err(Error::Other("offsets length mismatch".to_string()));
+                        }
+
+                        offsets.clear();
+                        offsets.resize(row_count + 1, 0u32);
+                        #[cfg(target_endian = "little")]
+                        {
+                            let dst = unsafe {
+                                std::slice::from_raw_parts_mut(
+                                    offsets.as_mut_ptr() as *mut u8,
+                                    expected_offsets_len,
+                                )
+                            };
+                            dst.copy_from_slice(payload1);
+                        }
+                        #[cfg(not(target_endian = "little"))]
+                        {
+                            for i in 0..(row_count + 1) {
+                                let j = i * 4;
+                                offsets[i] = u32::from_le_bytes([
+                                    payload1[j],
+                                    payload1[j + 1],
+                                    payload1[j + 2],
+                                    payload1[j + 3],
+                                ]);
+                            }
+                        }
+
+                        let mut prev = 0u32;
+                        for &o in offsets.iter() {
+                            if o < prev {
+                                return Err(Error::Other(
+                                    "offsets must be non-decreasing".to_string(),
+                                ));
+                            }
+                            prev = o;
+                        }
+                        let final_off = offsets.last().copied().unwrap_or(0);
+                        let data_len_u32: u32 = payload2
+                            .len()
+                            .try_into()
+                            .map_err(|_| Error::Other("data too large".to_string()))?;
+                        if final_off != data_len_u32 {
+                            return Err(Error::Other("final offset mismatch".to_string()));
+                        }
+
+                        data.clear();
+                        data.extend_from_slice(payload2);
+                    }
+                    ENC_DICT_UTF8 => {
+                        if ty == ColumnarType::Bytes {
+                            return Err(Error::Other(
+                                "DictUtf8 is not supported for Bytes".to_string(),
+                            ));
+                        }
+                        decode_dict_utf8_to_var_col(
+                            ws,
+                            row_count,
+                            validity_src,
+                            payload1,
+                            payload2,
+                            offsets,
+                            data,
+                        )?;
+                    }
+                    _ => {
+                        return Err(Error::Other(
+                            "invalid encoding for varlen column".to_string(),
+                        ));
+                    }
+                }
+            }
+            _ => {
+                if encoding_id_u16 == ENC_DELTA_VARINT_I64
+                    && !(ty == ColumnarType::I64 || ty == ColumnarType::TimestampTzMicros)
+                {
+                    return Err(Error::Other(
+                        "invalid encoding for fixed column".to_string(),
+                    ));
+                }
+                let enc = if encoding_id_u16 == ENC_DELTA_VARINT_I64 {
+                    FixedEncodingId::PlainLe
+                } else {
+                    FixedEncodingId::from_u16(encoding_id_u16).ok_or_else(|| {
+                        Error::Other("invalid encoding for fixed column".to_string())
+                    })?
+                };
+                if payload2_len != 0 {
+                    return Err(Error::Other(
+                        "fixed-width payload_2 must be empty".to_string(),
+                    ));
+                }
+
+                match ty {
+                    ColumnarType::Bool => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedBool { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.extend_from_slice(payload1);
+                    }
+                    ColumnarType::I16 => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedI16 { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count * 2 {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.resize(row_count, 0i16);
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 2,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 2;
+                                        let b = [payload1[j], payload1[j + 1]];
+                                        values[i] = i16::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 2;
+                                    let b = [payload1[j], payload1[j + 1]];
+                                    values[i] = i16::from_be_bytes(b);
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::I32 => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedI32 { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count * 4 {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.resize(row_count, 0i32);
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 4,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 4;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                        ];
+                                        values[i] = i32::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 4;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                    ];
+                                    values[i] = i32::from_be_bytes(b);
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::I64 => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedI64 { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        values.clear();
+                        values.resize(row_count, 0i64);
+                        if encoding_id_u16 == ENC_DELTA_VARINT_I64 {
+                            decode_delta_varint_i64_from_payload(
+                                payload1,
+                                row_count,
+                                values.as_mut_slice(),
+                            )?;
+                        } else {
+                            if payload1.len() != row_count * 8 {
+                                return Err(Error::Other("values length mismatch".to_string()));
+                            }
+                            match enc {
+                                FixedEncodingId::PlainLe => {
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let dst = unsafe {
+                                            std::slice::from_raw_parts_mut(
+                                                values.as_mut_ptr() as *mut u8,
+                                                row_count * 8,
+                                            )
+                                        };
+                                        dst.copy_from_slice(payload1);
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        for i in 0..row_count {
+                                            let j = i * 8;
+                                            let b = [
+                                                payload1[j],
+                                                payload1[j + 1],
+                                                payload1[j + 2],
+                                                payload1[j + 3],
+                                                payload1[j + 4],
+                                                payload1[j + 5],
+                                                payload1[j + 6],
+                                                payload1[j + 7],
+                                            ];
+                                            values[i] = i64::from_le_bytes(b);
+                                        }
+                                    }
+                                }
+                                FixedEncodingId::PgBeFixed => {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = i64::from_be_bytes(b);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::F32 => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedF32Bits { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count * 4 {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.resize(row_count, 0u32);
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 4,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 4;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                        ];
+                                        values[i] = u32::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 4;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                    ];
+                                    values[i] = u32::from_be_bytes(b);
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::F64 => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedF64Bits { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count * 8 {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.resize(row_count, 0u64);
+                        match enc {
+                            FixedEncodingId::PlainLe => {
+                                #[cfg(target_endian = "little")]
+                                {
+                                    let dst = unsafe {
+                                        std::slice::from_raw_parts_mut(
+                                            values.as_mut_ptr() as *mut u8,
+                                            row_count * 8,
+                                        )
+                                    };
+                                    dst.copy_from_slice(payload1);
+                                }
+                                #[cfg(not(target_endian = "little"))]
+                                {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = u64::from_le_bytes(b);
+                                    }
+                                }
+                            }
+                            FixedEncodingId::PgBeFixed => {
+                                for i in 0..row_count {
+                                    let j = i * 8;
+                                    let b = [
+                                        payload1[j],
+                                        payload1[j + 1],
+                                        payload1[j + 2],
+                                        payload1[j + 3],
+                                        payload1[j + 4],
+                                        payload1[j + 5],
+                                        payload1[j + 6],
+                                        payload1[j + 7],
+                                    ];
+                                    values[i] = u64::from_be_bytes(b);
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::Uuid => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedUuid { validity, values } => (validity, values),
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        if payload1.len() != row_count * 16 {
+                            return Err(Error::Other("values length mismatch".to_string()));
+                        }
+                        values.clear();
+                        values.resize(row_count, [0u8; 16]);
+                        let dst = unsafe {
+                            std::slice::from_raw_parts_mut(
+                                values.as_mut_ptr() as *mut u8,
+                                row_count * 16,
+                            )
+                        };
+                        dst.copy_from_slice(payload1);
+                    }
+                    ColumnarType::TimestampTzMicros => {
+                        let (validity, values) = match out_col {
+                            ColumnData::FixedTimestampMicros { validity, values } => {
+                                (validity, values)
+                            }
+                            _ => return Err(schema_err()),
+                        };
+                        validity.bytes.clear();
+                        validity.bytes.extend_from_slice(validity_src);
+                        values.clear();
+                        values.resize(row_count, 0i64);
+                        if encoding_id_u16 == ENC_DELTA_VARINT_I64 {
+                            decode_delta_varint_i64_from_payload(
+                                payload1,
+                                row_count,
+                                values.as_mut_slice(),
+                            )?;
+                        } else {
+                            if payload1.len() != row_count * 8 {
+                                return Err(Error::Other("values length mismatch".to_string()));
+                            }
+                            match enc {
+                                FixedEncodingId::PlainLe => {
+                                    #[cfg(target_endian = "little")]
+                                    {
+                                        let dst = unsafe {
+                                            std::slice::from_raw_parts_mut(
+                                                values.as_mut_ptr() as *mut u8,
+                                                row_count * 8,
+                                            )
+                                        };
+                                        dst.copy_from_slice(payload1);
+                                    }
+                                    #[cfg(not(target_endian = "little"))]
+                                    {
+                                        for i in 0..row_count {
+                                            let j = i * 8;
+                                            let b = [
+                                                payload1[j],
+                                                payload1[j + 1],
+                                                payload1[j + 2],
+                                                payload1[j + 3],
+                                                payload1[j + 4],
+                                                payload1[j + 5],
+                                                payload1[j + 6],
+                                                payload1[j + 7],
+                                            ];
+                                            values[i] = i64::from_le_bytes(b);
+                                        }
+                                    }
+                                }
+                                FixedEncodingId::PgBeFixed => {
+                                    for i in 0..row_count {
+                                        let j = i * 8;
+                                        let b = [
+                                            payload1[j],
+                                            payload1[j + 1],
+                                            payload1[j + 2],
+                                            payload1[j + 3],
+                                            payload1[j + 4],
+                                            payload1[j + 5],
+                                            payload1[j + 6],
+                                            payload1[j + 7],
+                                        ];
+                                        values[i] = i64::from_be_bytes(b);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    ColumnarType::Utf8 | ColumnarType::Bytes | ColumnarType::JsonbText => {
+                        return Err(Error::Other("invalid fixed type".to_string()));
+                    }
+                }
+            }
+        }
+    }
+
+    out.row_count = row_count;
     out.validate()?;
     Ok(())
 }

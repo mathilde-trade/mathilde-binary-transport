@@ -32,6 +32,8 @@ This inventory lists what currently exists in this crate. It must describe only 
 - `src/tests/test_mathldbt_v1.rs`: `MATHLDBT` round-trip and determinism tests.
 - `src/tests/test_mathldbt_v1_adversarial.rs`: adversarial decode tests (truncation/malformed payloads; deterministic errors).
 - `src/tests/test_mathldbt_v1_compressed.rs`: tests for compressed helpers (round-trip, determinism, bounds enforcement, and feature-gate errors).
+- `src/tests/test_mathldbt_v1_decode_into_equivalence.rs`: `decode_into` correctness vs allocating decode (plain + dict/delta).
+- `src/tests/test_mathldbt_v1_decode_into_reuse_smoke.rs`: `decode_into` reuse smoke test (call twice on the same destination).
 
 - `bin/generate_global_inventory.rs`: standalone global inventory generator (`rustc`-compiled; strict mode detects missing file purposes).
 
